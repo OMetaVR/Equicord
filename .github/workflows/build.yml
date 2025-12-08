@@ -6,6 +6,7 @@ on:
 
 env:
   FORCE_COLOR: true
+  DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
 
 permissions:
   contents: write
@@ -64,3 +65,13 @@ jobs:
           files: dist/release/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify success
+        if: success() && env.DISCORD_WEBHOOK != ''
+        run: |
+          curl -H "Content-Type: application/json" -d '{"content":"✅ Build successful! Release updated: https://github.com/${{ github.repository }}/releases/tag/latest"}' $DISCORD_WEBHOOK
+
+      - name: Notify failure
+        if: failure() && env.DISCORD_WEBHOOK != ''
+        run: |
+          curl -H "Content-Type: application/json" -d '{"content":"<@297075664530440192> ❌ Build failed! Check: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' $DISCORD_WEBHOOK

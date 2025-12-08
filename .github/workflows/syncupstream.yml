@@ -1,0 +1,61 @@
+name: Sync with Upstream
+on:
+  schedule:
+    - cron: '0 */3 * * *'
+  workflow_dispatch:
+
+env:
+  DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Git
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+      - name: Add upstream and fetch
+        run: |
+          git remote add upstream https://github.com/Equicord/Equicord.git
+          git fetch upstream main
+
+      - name: Check for new commits
+        id: check
+        run: |
+          UPSTREAM_COMMITS=$(git rev-list HEAD..upstream/main --count)
+          echo "commits=$UPSTREAM_COMMITS" >> $GITHUB_OUTPUT
+          if [ "$UPSTREAM_COMMITS" -gt 0 ]; then
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Merge upstream
+        if: steps.check.outputs.has_updates == 'true'
+        id: merge
+        run: |
+          git merge upstream/main --no-edit || echo "merge_failed=true" >> $GITHUB_OUTPUT
+
+      - name: Push changes
+        if: steps.check.outputs.has_updates == 'true' && steps.merge.outputs.merge_failed != 'true'
+        run: git push origin main
+
+      - name: Notify success
+        if: steps.check.outputs.has_updates == 'true' && steps.merge.outputs.merge_failed != 'true' && env.DISCORD_WEBHOOK != ''
+        run: |
+          curl -H "Content-Type: application/json" -d '{"content":"✅ Synced ${{ steps.check.outputs.commits }} commits from upstream Equicord"}' $DISCORD_WEBHOOK
+
+      - name: Notify conflict
+        if: steps.merge.outputs.merge_failed == 'true' && env.DISCORD_WEBHOOK != ''
+        run: |
+          curl -H "Content-Type: application/json" -d '{"content":"<@297075664530440192> ⚠️ Merge conflict syncing from upstream! Manual intervention needed."}' $DISCORD_WEBHOOK
