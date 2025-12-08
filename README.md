@@ -14,6 +14,7 @@ Our included plugins can be found [here](https://equicord.org/plugins).
 
 ## Installing / Uninstalling
 
+
 Windows
 
 - [GUI](https://github.com/Equicord/Equilotl/releases/latest/download/Equilotl.exe)
