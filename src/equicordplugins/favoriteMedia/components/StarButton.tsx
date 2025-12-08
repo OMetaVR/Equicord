@@ -135,7 +135,7 @@ export function StarButton(props: StarButtonProps) {
 function extractMediaName(url: string): string {
     try {
         const urlObj = new URL(url);
-        const pathname = urlObj.pathname;
+        const { pathname } = urlObj;
         const filename = pathname.split("/").pop() || "media";
         return filename.replace(/\.[^.]+$/, "");
     } catch {

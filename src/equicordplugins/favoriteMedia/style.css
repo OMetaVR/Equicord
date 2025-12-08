@@ -295,17 +295,6 @@
     filter: brightness(1.1);
 }
 
-.fm-media-card .fm-star-overlay {
-    position: absolute;
-    top: 4px;
-    left: 4px;
-    opacity: 0;
-    transform: translateY(-8px);
-    transition: opacity 0.15s ease, transform 0.15s ease;
-    pointer-events: none;
-    z-index: 10;
-}
-
 .fm-media-card:hover .fm-star-overlay {
     opacity: 1;
     transform: translateY(0);
@@ -499,8 +488,7 @@
 }
 
 [class*="navList_"] {
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
+    overflow: hidden auto !important;
     flex-wrap: nowrap !important;
     scrollbar-width: thin;
     scrollbar-color: var(--scrollbar-thin-thumb) transparent;

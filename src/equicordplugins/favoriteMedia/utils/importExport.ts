@@ -6,7 +6,7 @@
 
 import { Toasts } from "@webpack/common";
 
-import { ExportData, MEDIA_TYPES, MediaType, StoredMediaData } from "../types";
+import { ExportData, MEDIA_TYPES, StoredMediaData } from "../types";
 import { checkSameUrl, getMediaData, saveMediaData } from "./mediaManager";
 
 const CURRENT_VERSION = "1.0.0";

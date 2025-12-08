@@ -26,6 +26,11 @@ export function MediaCard({ media, type, onClick, onShiftClick, onDragStart }: M
         });
     }, [type]);
 
+    React.useEffect(() => {
+        if (videoRef.current) videoRef.current.volume = mediaVolume;
+        if (audioRef.current) audioRef.current.volume = mediaVolume;
+    }, [mediaVolume, showControls]);
+
     const handleClick = React.useCallback((e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
@@ -150,7 +155,6 @@ export function MediaCard({ media, type, onClick, onShiftClick, onDragStart }: M
                     className="fm-media-thumbnail"
                     controls={showControls}
                     draggable={false}
-                    volume={mediaVolume}
                 />
             );
         }
@@ -166,7 +170,6 @@ export function MediaCard({ media, type, onClick, onShiftClick, onDragStart }: M
                             src={media.url}
                             controls
                             className="fm-media-audio-controls"
-                            volume={mediaVolume}
                         />
                     )}
                 </div>

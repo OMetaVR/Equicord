@@ -9,7 +9,7 @@ import { IconProps } from "@utils/types";
 import { ExpressionPickerStore } from "@webpack/common";
 
 import { shouldShowButton } from "../index";
-import { ChatBarButtonProps, MediaType } from "../types";
+import { MediaType } from "../types";
 
 export function ImageIcon({ className, width = 20, height = 20 }: IconProps) {
     return (
@@ -131,7 +131,7 @@ export function FavoriteMediaChatBarButton(props: FMChatBarButtonProps) {
 
     const handleClick = () => {
         console.log("[FavoriteMedia] Button clicked for:", mediaType, "channel:", channel?.id);
-        ExpressionPickerStore.toggleExpressionPicker("gif", chatInputType, channel?.id);
+        ExpressionPickerStore.toggleExpressionPicker("gif", chatInputType);
         setTimeout(() => {
             console.log("[FavoriteMedia] Switching to view:", activeView);
             ExpressionPickerStore.setExpressionPickerView(activeView);

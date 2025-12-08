@@ -4,10 +4,10 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
+import { Paragraph } from "@components/Paragraph";
 import { openModal } from "@utils/modal";
 import { ContextMenuApi, React, TooltipContainer, useEffect, useState, useStateFromStores } from "@webpack/common";
 import { SpotifyStore } from "equicordplugins/musicControls/spotify/SpotifyStore";
-import { Paragraph } from "@components/Paragraph";
 
 import { SpotifyLrcStore } from "../providers/store";
 import settings from "../settings";

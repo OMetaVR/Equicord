@@ -37,10 +37,6 @@ function transformUrlForFetch(url: string, type: MediaType): string {
         return url;
     }
 
-    if (!isMediaUrl(url) && type === "file") {
-        return url;
-    }
-
     if (url.includes("cdn.discordapp.com")) {
         return url.replace("cdn.discordapp.com", "media.discordapp.net");
     }

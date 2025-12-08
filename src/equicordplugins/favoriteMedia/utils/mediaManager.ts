@@ -6,7 +6,7 @@
 
 import { DataStore } from "@api/index";
 
-import { Media, MediaType, MEDIA_TYPES, StoredMediaData } from "../types";
+import { Media, MEDIA_TYPES, MediaType, StoredMediaData } from "../types";
 
 const STORAGE_KEYS: Record<MediaType, string> = {
     gif: "FavoriteMedia_gif",

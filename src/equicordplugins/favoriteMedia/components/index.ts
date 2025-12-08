@@ -4,9 +4,9 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-export * from "./StarButton";
-export * from "./MediaPicker";
 export * from "./CategoryCard";
-export * from "./MediaCard";
 export * from "./CategoryModal";
 export * from "./ChatBarButton";
+export * from "./MediaCard";
+export * from "./MediaPicker";
+export * from "./StarButton";

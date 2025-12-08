@@ -105,4 +105,3 @@ Additionally, make sure not to post screenshots with Equicord (and any other cli
 | spotifyLyrics | Add's lyrics display to the spotify controls above the user control panel | [github.com](https://github.com/Masterjoona/vc-spotifylyrics/)
 
 </details>
-

@@ -5,6 +5,7 @@
  */
 
 import type { Track } from "equicordplugins/musicControls/spotify/SpotifyStore";
+
 import type { SyncedLyric } from "../types";
 
 const baseUrlLrclib = "https://lrclib.net/api/get";
