@@ -21,15 +21,15 @@ export default definePlugin({
     name: "SpotifyLyrics",
     authors: [Devs.Joona],
     description: "Adds lyrics to SpotifyControls",
-    dependencies: ["SpotifyControls"],
+    dependencies: ["MusicControls"],
     patches: [
         {
             find: "this.isCopiedStreakGodlike",
             replacement: {
-                match: /Vencord\.Plugins\.plugins\["SpotifyControls"]\.PanelWrapper/,
+                match: /Vencord\.Plugins\.plugins\["MusicControls"]\.PanelWrapper/,
                 replace: "$self.FakePanelWrapper",
             },
-            predicate: () => Settings.plugins.SpotifyControls.enabled,
+            predicate: () => Settings.plugins.MusicControls.enabled,
         },
     ],
     FakePanelWrapper({ VencordOriginal, ...props }) {
