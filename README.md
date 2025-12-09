@@ -105,5 +105,6 @@ Additionally, make sure not to post screenshots with Equicord (and any other cli
 |------|-------------|---------------|
 | betterSpotifyCard | Enhanced Spotify card display | [git.nin0.dev](https://git.nin0.dev/userplugins/betterSpotifyCard) |
 | spotifyLyrics | Add's lyrics display to the spotify controls above the user control panel | [github.com](https://github.com/Masterjoona/vc-spotifylyrics/)
+| favoriteMedia | BetterDiscord fork for favoriting any type of media with categories within the expression picker | I created this, it has no repo |
 
 </details>
