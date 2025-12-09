@@ -384,7 +384,7 @@ export function SpotifyPlayer() {
     } as React.CSSProperties;
 
     return (
-        <div id={cl("player")} style={exportTrackImageStyle}>
+        <div id={cl("player")} className={isPlaying ? "" : cl("paused")} style={exportTrackImageStyle}>
             <Info track={track} />
             <SpotifySeekBar />
             <Controls />
