@@ -74,11 +74,17 @@ async function fetchUpdates() {
 async function applyUpdates() {
     if (!PendingUpdate) return true;
 
+    console.log("[Updater] Downloading from:", PendingUpdate);
+    console.log("[Updater] Writing to:", __dirname);
+
     const data = await fetchBuffer(PendingUpdate);
+    console.log("[Updater] Downloaded bytes:", data.byteLength);
+
     originalWriteFileSync(__dirname, data);
+    console.log("[Updater] Write complete");
 
     PendingUpdate = null;
-
+    console.log("[Updater] Restarting");
     return true;
 }
 
