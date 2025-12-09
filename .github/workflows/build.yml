@@ -67,7 +67,7 @@ jobs:
           retry_wait_seconds: 10
           retry_on: error
           command: |
-            gh release edit latest --title "Latest ${{ github.sha }}"
+            gh release edit latest --title "Latest ${{ github.sha }}" --latest
             gh release upload latest dist/release/* --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
