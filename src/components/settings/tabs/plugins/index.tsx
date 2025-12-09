@@ -191,7 +191,7 @@ export default function PluginSettings() {
         .sort((a, b) => a.name.localeCompare(b.name)), []);
 
     const hasUserPlugins = useMemo(() => !IS_STANDALONE && Object.values(PluginMeta).some(m => m.userPlugin), []);
-    const hasWardenPlugins = useMemo(() => !IS_STANDALONE && Object.values(PluginMeta).some(m => m.wardenPlugin), []);
+    const hasWardenPlugins = useMemo(() => Object.values(PluginMeta).some(m => m.wardenPlugin), []);
 
     const [searchValue, setSearchValue] = useState({ value: "", status: SearchStatus.ALL });
 
