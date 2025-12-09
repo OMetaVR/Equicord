@@ -71,3 +71,48 @@ export function UserPluginsCard({ totalUserPlugins, enabledUserPlugins }) {
             </div>
         );
 }
+
+export function WardenPluginsCard({ totalWardenPlugins, enabledWardenPlugins }) {
+    if (totalWardenPlugins === 0)
+        return (
+            <div className="vc-plugin-stats vc-stockplugins-stats-card">
+                <div className="vc-plugin-stats-card-container ">
+                    <div className="vc-plugin-stats-card-section">
+                        <BaseText size="md" weight="semibold">Total Warden Plugins</BaseText>
+                        <Tooltip
+                            text={
+                                <img
+                                    src="https://discord.com/assets/ab6835d2922224154ddf.svg"
+                                    style={{ width: "40px", height: "40px" }}
+                                />
+                            }
+                        >
+                            {tooltipProps => (
+                                <span style={{ display: "inline", position: "relative" }}>
+                                    <BaseText size="xl" weight="bold" {...tooltipProps}>
+                                        {totalWardenPlugins}
+                                    </BaseText>
+                                </span>
+                            )}
+                        </Tooltip>
+                    </div>
+                </div>
+            </div>
+        );
+    else
+        return (
+            <div className="vc-plugin-stats vc-stockplugins-stats-card">
+                <div className="vc-plugin-stats-card-container">
+                    <div className="vc-plugin-stats-card-section">
+                        <BaseText size="md" weight="semibold">Enabled Warden Plugins</BaseText>
+                        <BaseText size="xl" weight="bold">{enabledWardenPlugins}</BaseText>
+                    </div>
+                    <div className="vc-plugin-stats-card-divider"></div>
+                    <div className="vc-plugin-stats-card-section">
+                        <BaseText size="md" weight="semibold">Total Warden Plugins</BaseText>
+                        <BaseText size="xl" weight="bold">{totalWardenPlugins}</BaseText>
+                    </div>
+                </div>
+            </div>
+        );
+}

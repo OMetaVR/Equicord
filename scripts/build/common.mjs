@@ -147,7 +147,7 @@ export const globPlugins = kind => ({
         });
 
         build.onLoad({ filter, namespace: "import-plugins" }, async () => {
-            const pluginDirs = ["plugins/_api", "plugins/_core", "plugins", "userplugins", "equicordplugins", "equicordplugins/_api"];
+            const pluginDirs = ["plugins/_api", "plugins/_core", "plugins", "userplugins", "equicordplugins", "equicordplugins/_api", "wardenplugins"];
             let code = "";
             let pluginsCode = "\n";
             let metaCode = "\n";
@@ -155,6 +155,7 @@ export const globPlugins = kind => ({
             let i = 0;
             for (const dir of pluginDirs) {
                 const userPlugin = dir === "userplugins";
+                const wardenPlugin = dir === "wardenplugins";
 
                 const fullDir = `./src/${dir}`;
                 if (!await exists(fullDir)) continue;
@@ -188,7 +189,7 @@ export const globPlugins = kind => ({
                     const mod = `p${i}`;
                     code += `import ${mod} from "./${dir}/${fileName.replace(/\.tsx?$/, "")}";\n`;
                     pluginsCode += `[${mod}.name]:${mod},\n`;
-                    metaCode += `[${mod}.name]:${JSON.stringify({ folderName, userPlugin })},\n`;
+                    metaCode += `[${mod}.name]:${JSON.stringify({ folderName, userPlugin, wardenPlugin })},\n`;
                     i++;
                 }
             }

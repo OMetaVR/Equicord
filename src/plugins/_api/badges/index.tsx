@@ -36,6 +36,7 @@ import { EquicordDonorModal, VencordDonorModal } from "./modals";
 const CONTRIBUTOR_BADGE = "https://cdn.discordapp.com/emojis/1092089799109775453.png?size=64";
 const EQUICORD_CONTRIBUTOR_BADGE = "https://equicord.org/assets/favicon.png";
 const USERPLUGIN_CONTRIBUTOR_BADGE = "https://equicord.org/assets/icons/misc/userplugin.png";
+const WARDEN_CONTRIBUTOR_BADGE = "https://raw.githubusercontent.com/OMetaVR/Equicord/refs/heads/main/browser/warden1.png";
 
 const ContributorBadge: ProfileBadge = {
     description: "Vencord Contributor",
@@ -69,6 +70,27 @@ const UserPluginContributorBadge: ProfileBadge = {
         return allPlugins.some(p => {
             const pluginMeta = PluginMeta[p.name];
             return pluginMeta?.userPlugin && p.authors.some(a => a.id.toString() === userId);
+        });
+    },
+    onClick: (_, { userId }) => openContributorModal(UserStore.getUser(userId)),
+    props: {
+        style: {
+            borderRadius: "50%",
+            transform: "scale(0.9)"
+        }
+    },
+};
+
+const WardenPluginContributorBadge: ProfileBadge = {
+    description: "Warden Plugin Contributor",
+    iconSrc: WARDEN_CONTRIBUTOR_BADGE,
+    position: BadgePosition.START,
+    shouldShow: ({ userId }) => {
+        if (!IS_DEV) return false;
+        const allPlugins = Object.values(Plugins);
+        return allPlugins.some(p => {
+            const pluginMeta = PluginMeta[p.name];
+            return pluginMeta?.wardenPlugin && p.authors.some(a => a.id.toString() === userId);
         });
     },
     onClick: (_, { userId }) => openContributorModal(UserStore.getUser(userId)),
@@ -190,7 +212,7 @@ export default definePlugin({
         }
     },
 
-    userProfileBadges: [ContributorBadge, EquicordContributorBadge, UserPluginContributorBadge],
+    userProfileBadges: [ContributorBadge, EquicordContributorBadge, UserPluginContributorBadge, WardenPluginContributorBadge],
 
     async start() {
         await loadAllBadges();

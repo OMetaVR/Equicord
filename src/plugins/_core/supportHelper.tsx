@@ -122,6 +122,7 @@ async function generateDebugInfoMessage() {
         "Equicord DevBuild": !IS_STANDALONE,
         "Equibop DevBuild": IS_EQUIBOP && tryOrElse(() => VesktopNative.app.isDevBuild?.(), false),
         "Has UserPlugins": Object.values(PluginMeta).some(m => m.userPlugin),
+        "Has WardenPlugins": Object.values(PluginMeta).some(m => m.wardenPlugin),
         ">2 Weeks Outdated": BUILD_TIMESTAMP < Date.now() - 12096e5,
         [`Potentially Problematic Plugins: ${potentiallyProblematicPlugins.join(", ")}`]: potentiallyProblematicPlugins.length
     };
@@ -140,14 +141,19 @@ function generatePluginList() {
     const enabledPlugins = Object.keys(plugins)
         .filter(p => isPluginEnabled(p) && !isApiPlugin(p));
 
-    const enabledStockPlugins = enabledPlugins.filter(p => !PluginMeta[p].userPlugin);
+    const enabledStockPlugins = enabledPlugins.filter(p => !PluginMeta[p].userPlugin && !PluginMeta[p].wardenPlugin);
     const enabledUserPlugins = enabledPlugins.filter(p => PluginMeta[p].userPlugin);
+    const enabledWardenPlugins = enabledPlugins.filter(p => PluginMeta[p].wardenPlugin);
 
 
     let content = `**Enabled Plugins (${enabledStockPlugins.length}):**\n${makeCodeblock(enabledStockPlugins.join(", "))}`;
 
     if (enabledUserPlugins.length) {
         content += `**Enabled UserPlugins (${enabledUserPlugins.length}):**\n${makeCodeblock(enabledUserPlugins.join(", "))}`;
+    }
+
+    if (enabledWardenPlugins.length) {
+        content += `**Enabled WardenPlugins (${enabledWardenPlugins.length}):**\n${makeCodeblock(enabledWardenPlugins.join(", "))}`;
     }
 
     const user = UserStore.getCurrentUser();

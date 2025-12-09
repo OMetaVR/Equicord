@@ -36,6 +36,7 @@ export function PluginCard({ plugin, disabled, onRestartNeeded, onMouseEnter, on
     const isEquicordPlugin = pluginMeta.folderName.startsWith("src/equicordplugins/") ?? false;
     const isVencordPlugin = pluginMeta.folderName.startsWith("src/plugins/") ?? false;
     const isUserPlugin = pluginMeta?.userPlugin ?? false;
+    const isWardenPlugin = pluginMeta?.wardenPlugin ?? false;
     const isModifiedPlugin = plugin.isModified ?? false;
 
     const isEnabled = () => isPluginEnabled(plugin.name);
@@ -114,6 +115,12 @@ export function PluginCard({ plugin, disabled, onRestartNeeded, onMouseEnter, on
             src: "https://equicord.org/assets/icons/misc/userplugin.png",
             alt: "User",
             title: "User Plugin"
+        },
+        {
+            condition: isWardenPlugin,
+            src: "https://raw.githubusercontent.com/OMetaVR/Equicord/refs/heads/main/browser/warden1.png",
+            alt: "Warden",
+            title: "Warden Plugin"
         }
     ];
 
