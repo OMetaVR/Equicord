@@ -9,6 +9,7 @@ import { isPluginEnabled, startDependenciesRecursive, startPlugin, stopPlugin } 
 import { classNameFactory } from "@api/Styles";
 import { CogWheel, InfoIcon } from "@components/Icons";
 import { AddonCard } from "@components/settings/AddonCard";
+import { getTheme, Theme } from "@utils/discord";
 import { Logger } from "@utils/Logger";
 import { isObjectEmpty } from "@utils/misc";
 import { Plugin } from "@utils/types";
@@ -118,7 +119,9 @@ export function PluginCard({ plugin, disabled, onRestartNeeded, onMouseEnter, on
         },
         {
             condition: isWardenPlugin,
-            src: "https://raw.githubusercontent.com/OMetaVR/Equicord/refs/heads/main/browser/warden1.png",
+            src: getTheme() === Theme.Light
+                ? "https://raw.githubusercontent.com/OMetaVR/Equicord/refs/heads/main/browser/warden1.png"
+                : "https://raw.githubusercontent.com/OMetaVR/Equicord/refs/heads/main/browser/warden2.png",
             alt: "Warden",
             title: "Warden Plugin"
         }
