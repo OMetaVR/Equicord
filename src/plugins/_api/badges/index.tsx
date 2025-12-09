@@ -82,6 +82,7 @@ const UserPluginContributorBadge: ProfileBadge = {
 
 let DonorBadges = {} as Record<string, Array<Record<"tooltip" | "badge", string>>>;
 let EquicordDonorBadges = {} as Record<string, Array<Record<"tooltip" | "badge", string>>>;
+let CustomBadges = {} as Record<string, Array<Record<"tooltip" | "badge", string>>>;
 
 async function loadBadges(url: string, noCache = false) {
     const init = {} as RequestInit;
@@ -91,11 +92,15 @@ async function loadBadges(url: string, noCache = false) {
 }
 
 async function loadAllBadges(noCache = false) {
-    const vencordBadges = await loadBadges("https://badges.vencord.dev/badges.json", noCache);
-    const equicordBadges = await loadBadges("https://equicord.org/badges.json", noCache);
+    const [vencordBadges, equicordBadges, customBadges] = await Promise.all([
+        loadBadges("https://badges.vencord.dev/badges.json", noCache),
+        loadBadges("https://equicord.org/badges.json", noCache),
+        loadBadges("https://raw.githubusercontent.com/OMetaVR/Equicord/main/badges.json", noCache).catch(() => ({}))
+    ]);
 
     DonorBadges = vencordBadges;
     EquicordDonorBadges = equicordBadges;
+    CustomBadges = customBadges;
 }
 
 let intervalId: any;
@@ -257,7 +262,7 @@ export default definePlugin({
             props: {
                 style: {
                     borderRadius: "50%",
-                    transform: "scale(0.9)" // The image is a bit too big compared to default badges
+                    transform: "scale(0.9)"
                 }
             },
             onContextMenu(event, badge) {
@@ -265,6 +270,23 @@ export default definePlugin({
             },
             onClick() {
                 return EquicordDonorModal();
+            },
+        } satisfies ProfileBadge));
+    },
+
+    getCustomBadges(userId: string) {
+        return CustomBadges[userId]?.map(badge => ({
+            iconSrc: badge.badge,
+            description: badge.tooltip,
+            position: BadgePosition.START,
+            props: {
+                style: {
+                    borderRadius: "50%",
+                    transform: "scale(0.9)"
+                }
+            },
+            onContextMenu(event, badge) {
+                ContextMenuApi.openContextMenu(event, () => <BadgeContextMenu badge={badge} />);
             },
         } satisfies ProfileBadge));
     }
