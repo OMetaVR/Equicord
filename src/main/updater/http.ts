@@ -57,14 +57,15 @@ async function calculateGitChanges() {
 async function fetchUpdates() {
     const data = await githubGet("/releases/latest");
 
-    const hash = data.name.slice(data.name.lastIndexOf(" ") + 1);
-    if (hash === gitHash)
+    // Use target_commitish (the commit the release tag points to) instead of parsing the title
+    const releaseHash = data.target_commitish;
+    if (releaseHash === gitHash)
         return false;
 
+    const asset = data.assets.find((a: any) => a.name === ASAR_FILE);
+    if (!asset) return false;
 
-    const asset = data.assets.find(a => a.name === ASAR_FILE);
     PendingUpdate = asset.browser_download_url;
-
     return true;
 }
 
