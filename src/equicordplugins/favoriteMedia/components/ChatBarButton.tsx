@@ -130,12 +130,10 @@ export function FavoriteMediaChatBarButton(props: FMChatBarButtonProps) {
     const activeView = MEDIA_TYPE_VIEWS[mediaType];
 
     const handleClick = () => {
-        console.log("[FavoriteMedia] Button clicked for:", mediaType, "channel:", channel?.id);
-        ExpressionPickerStore.openExpressionPicker("gif", chatInputType);
+        ExpressionPickerStore.toggleExpressionPicker("gif", chatInputType, channel.id);
         setTimeout(() => {
-            console.log("[FavoriteMedia] Switching to view:", activeView);
             ExpressionPickerStore.setExpressionPickerView(activeView);
-        }, 50);
+        }, 0);
     };
 
     const tooltip = `Favorite ${displayName}`;
