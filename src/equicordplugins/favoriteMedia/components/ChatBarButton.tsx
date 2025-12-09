@@ -131,7 +131,7 @@ export function FavoriteMediaChatBarButton(props: FMChatBarButtonProps) {
 
     const handleClick = () => {
         console.log("[FavoriteMedia] Button clicked for:", mediaType, "channel:", channel?.id);
-        ExpressionPickerStore.toggleExpressionPicker("gif", chatInputType);
+        ExpressionPickerStore.openExpressionPicker("gif", chatInputType);
         setTimeout(() => {
             console.log("[FavoriteMedia] Switching to view:", activeView);
             ExpressionPickerStore.setExpressionPickerView(activeView);
