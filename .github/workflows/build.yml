@@ -10,7 +10,6 @@ env:
 
 permissions:
   contents: write
-  workflows: write
 
 jobs:
   Build:
