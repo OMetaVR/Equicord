@@ -59,10 +59,14 @@ jobs:
           git push -f origin latest
 
       - name: Upload to Release
-        uses: softprops/action-gh-release@v1
+        uses: nick-fields/retry@v3
         with:
-          tag_name: latest
-          files: dist/release/*
+          timeout_minutes: 10
+          max_attempts: 3
+          retry_wait_seconds: 10
+          retry_on: error
+          command: |
+            gh release upload latest dist/release/* --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
