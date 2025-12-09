@@ -12,6 +12,8 @@ You CANNOT join the equicord Discord server for commits, changes, chatting, or s
 
 Our included plugins can be found [here](https://equicord.org/plugins). You can also find a list of plugins for this specific fork at the end of this readme.
 
+There are also going to be custom made plugins developed by myself, if any user wants to submit them to equicord or vencord, or refactor the code, you have my permission with the caveat that you add me to the author list and credit is given.
+
 ## Installing Equicord Devbuild
 
 ### Dependencies
