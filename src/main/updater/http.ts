@@ -20,7 +20,9 @@ import { fetchBuffer, fetchJson } from "@main/utils/http";
 import { IpcEvents } from "@shared/IpcEvents";
 import { VENCORD_USER_AGENT } from "@shared/vencordUserAgent";
 import { ipcMain } from "electron";
+import { existsSync, statSync } from "fs";
 import { writeFileSync as originalWriteFileSync } from "original-fs";
+import { join } from "path";
 
 import gitHash from "~git-hash";
 import gitRemote from "~git-remote";
@@ -28,6 +30,13 @@ import gitRemote from "~git-remote";
 import { ASAR_FILE, serializeErrors } from "./common";
 
 const API_BASE = `https://api.github.com/repos/${gitRemote}`;
+
+function getAsarPath() {
+    if (__dirname.endsWith(".asar")) return __dirname;
+    const asarPath = join(__dirname, "..", ASAR_FILE);
+    if (existsSync(asarPath) && statSync(asarPath).isFile()) return asarPath;
+    return join(__dirname, ASAR_FILE);
+}
 let PendingUpdate: string | null = null;
 
 async function githubGet<T = any>(endpoint: string) {
@@ -74,17 +83,11 @@ async function fetchUpdates() {
 async function applyUpdates() {
     if (!PendingUpdate) return true;
 
-    console.log("[Updater] Downloading from:", PendingUpdate);
-    console.log("[Updater] Writing to:", __dirname);
-
+    const asarPath = getAsarPath();
     const data = await fetchBuffer(PendingUpdate);
-    console.log("[Updater] Downloaded bytes:", data.byteLength);
-
-    originalWriteFileSync(__dirname, data);
-    console.log("[Updater] Write complete");
+    originalWriteFileSync(asarPath, data);
 
     PendingUpdate = null;
-    console.log("[Updater] Restarting");
     return true;
 }
 
