@@ -74,7 +74,7 @@ jobs:
       - name: Update release tag
         run: |
           git tag -f ${{ steps.release_tag.outputs.tag }}
-          git push -f origin ${{ steps.release_tag.outputs.tag }}
+          git push -f origin refs/tags/${{ steps.release_tag.outputs.tag }}
 
       - name: Upload to Release (latest)
         if: steps.release_tag.outputs.is_latest == 'true'
