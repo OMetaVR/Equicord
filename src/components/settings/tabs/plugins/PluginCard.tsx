@@ -123,7 +123,8 @@ export function PluginCard({ plugin, disabled, onRestartNeeded, onMouseEnter, on
                 ? "https://raw.githubusercontent.com/OMetaVR/Equicord/refs/heads/main/browser/warden1.png"
                 : "https://raw.githubusercontent.com/OMetaVR/Equicord/refs/heads/main/browser/warden2.png",
             alt: "Warden",
-            title: "Warden Plugin"
+            title: "Warden Plugin",
+            style: { width: 28, height: 28 }
         }
     ];
 
@@ -134,6 +135,7 @@ export function PluginCard({ plugin, disabled, onRestartNeeded, onMouseEnter, on
             src={pluginDetails.src}
             alt={pluginDetails.alt}
             className={cl("source")}
+            style={pluginDetails.style}
         />
     ) : null;
 
