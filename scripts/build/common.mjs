@@ -51,12 +51,28 @@ if (!IS_COMPANION_TEST && process.argv.includes("--companion-test"))
 export const IS_UPDATER_DISABLED = process.argv.includes("--disable-updater");
 export const gitHash = process.env.EQUICORD_HASH || execSync("git rev-parse HEAD", { encoding: "utf-8" }).trim();
 
+function getGitBranch() {
+    if (process.env.EQUICORD_BRANCH) {
+        return process.env.EQUICORD_BRANCH;
+    }
+    try {
+        const branch = execSync("git rev-parse --abbrev-ref HEAD", { encoding: "utf-8" }).trim();
+        if (branch === "main") return "stable";
+        return branch;
+    } catch {
+        return "stable";
+    }
+}
+
+export const gitBranch = getGitBranch();
+
 export const banner = {
     js: `
 // Equicord ${gitHash}
 // Standalone: ${IS_STANDALONE}
 // Platform: ${IS_STANDALONE === false ? process.platform : "Universal"}
 // Updater Disabled: ${IS_UPDATER_DISABLED}
+// Branch: ${gitBranch}
 `.trim()
 };
 
@@ -247,6 +263,22 @@ export const gitRemotePlugin = {
 /**
  * @type {import("esbuild").Plugin}
  */
+export const gitBranchPlugin = {
+    name: "git-branch-plugin",
+    setup: build => {
+        const filter = /^~git-branch$/;
+        build.onResolve({ filter }, args => ({
+            namespace: "git-branch", path: args.path
+        }));
+        build.onLoad({ filter, namespace: "git-branch" }, () => ({
+            contents: `export default "${gitBranch}"`
+        }));
+    }
+};
+
+/**
+ * @type {import("esbuild").Plugin}
+ */
 export const fileUrlPlugin = {
     name: "file-uri-plugin",
     setup: build => {
@@ -354,8 +386,8 @@ export const commonOpts = {
     sourcemap: watch ? "inline" : "external",
     legalComments: "linked",
     banner,
-    plugins: [fileUrlPlugin, gitHashPlugin, gitRemotePlugin, stylePlugin],
-    external: ["~plugins", "~git-hash", "~git-remote", "/assets/*"],
+    plugins: [fileUrlPlugin, gitHashPlugin, gitRemotePlugin, gitBranchPlugin, stylePlugin],
+    external: ["~plugins", "~git-hash", "~git-remote", "~git-branch", "/assets/*"],
     inject: [join(dirname(fileURLToPath(import.meta.url)), "inject/react.mjs")],
     jsx: "transform",
     jsxFactory: "VencordCreateElement",

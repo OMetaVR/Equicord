@@ -35,6 +35,10 @@ declare module "~git-remote" {
     const remote: string;
     export default remote;
 }
+declare module "~git-branch" {
+    const branch: string;
+    export default branch;
+}
 
 declare module "file://*" {
     const content: string;

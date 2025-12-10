@@ -34,6 +34,7 @@ export const enum IpcEvents {
     OPEN_QUICKCSS = "VencordOpenQuickCss",
     GET_UPDATES = "VencordGetUpdates",
     GET_REPO = "VencordGetRepo",
+    GET_SELECTED_BRANCH = "VencordGetSelectedBranch",
     UPDATE = "VencordUpdate",
     BUILD = "VencordBuild",
     OPEN_MONACO_EDITOR = "VencordOpenMonacoEditor",

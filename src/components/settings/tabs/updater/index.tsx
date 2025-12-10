@@ -24,13 +24,42 @@ import { Link } from "@components/Link";
 import { Paragraph } from "@components/Paragraph";
 import { SettingsTab, wrapTab } from "@components/settings";
 import { Margins } from "@utils/margins";
+import { identity } from "@utils/misc";
 import { useAwaiter } from "@utils/react";
 import { getRepo, isNewer, UpdateLogger } from "@utils/updater";
-import { React } from "@webpack/common";
+import { React, Select } from "@webpack/common";
 
+import gitBranch from "~git-branch";
 import gitHash from "~git-hash";
 
 import { HashLink, Newer, Updatable } from "./Components";
+
+export function BranchSelector() {
+    const settings = useSettings(["enableBranchSwapping", "selectedBranch"]);
+
+    if (!settings.enableBranchSwapping) return null;
+
+    return (
+        <>
+            <Heading className={Margins.top20}>Branch</Heading>
+            <Paragraph className={Margins.bottom8}>
+                Select which release branch to use for updates.
+            </Paragraph>
+            <Select
+                className={Margins.bottom20}
+                placeholder="Select branch"
+                options={[
+                    { label: "Stable", value: "stable", default: true },
+                    { label: "Dev", value: "dev" }
+                ]}
+                select={v => settings.selectedBranch = v}
+                isSelected={v => settings.selectedBranch === v}
+                serialize={identity}
+            />
+            <Divider />
+        </>
+    );
+}
 
 interface CommonProps {
     repo: string;
@@ -38,7 +67,7 @@ interface CommonProps {
 }
 
 function Updater() {
-    const settings = useSettings(["autoUpdate", "autoUpdateNotification"]);
+    const settings = useSettings(["autoUpdate", "autoUpdateNotification", "enableBranchSwapping", "selectedBranch"]);
 
     const [repo, err, repoPending] = useAwaiter(getRepo, { fallbackValue: "Loading..." });
 
@@ -51,6 +80,8 @@ function Updater() {
         repo,
         repoPending
     };
+
+    const branchDisplay = settings.selectedBranch === "dev" ? "Dev" : "Stable";
 
     return (
         <SettingsTab>
@@ -77,6 +108,8 @@ function Updater() {
 
             <Divider className={Margins.top20} />
 
+            <BranchSelector />
+
             <Heading className={Margins.top20}>Repository</Heading>
             <Paragraph className={Margins.bottom8}>
                 This is the GitHub repository where Equicord fetches updates from.
@@ -93,6 +126,8 @@ function Updater() {
                         )
                 }
                 {" "}(<HashLink hash={gitHash} repo={repo} disabled={repoPending} />)
+                {` • Build: ${gitBranch.charAt(0).toUpperCase() + gitBranch.slice(1)}`}
+                {settings.enableBranchSwapping && ` • Selected: ${branchDisplay}`}
             </Paragraph>
 
             <Divider className={Margins.top20} />

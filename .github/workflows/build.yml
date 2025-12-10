@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - main
+      - dev
 
 env:
   FORCE_COLOR: true
@@ -32,9 +33,13 @@ jobs:
 
       - name: Build web
         run: pnpm buildWebStandalone
+        env:
+          EQUICORD_BRANCH: ${{ github.ref_name == 'main' && 'stable' || github.ref_name }}
 
       - name: Build
         run: pnpm buildStandalone
+        env:
+          EQUICORD_BRANCH: ${{ github.ref_name == 'main' && 'stable' || github.ref_name }}
 
       - name: Collect files to be released
         run: |
@@ -53,12 +58,26 @@ jobs:
 
           find release -size 0 -delete
 
-      - name: Update latest tag
+      - name: Set release tag
+        id: release_tag
         run: |
-          git tag -f latest
-          git push -f origin latest
+          if [ "${{ github.ref_name }}" = "main" ]; then
+            echo "tag=latest" >> $GITHUB_OUTPUT
+            echo "title=Latest" >> $GITHUB_OUTPUT
+            echo "is_latest=true" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "title=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+            echo "is_latest=false" >> $GITHUB_OUTPUT
+          fi
 
-      - name: Upload to Release
+      - name: Update release tag
+        run: |
+          git tag -f ${{ steps.release_tag.outputs.tag }}
+          git push -f origin ${{ steps.release_tag.outputs.tag }}
+
+      - name: Upload to Release (latest)
+        if: steps.release_tag.outputs.is_latest == 'true'
         uses: nick-fields/retry@v3
         with:
           timeout_minutes: 10
@@ -66,15 +85,30 @@ jobs:
           retry_wait_seconds: 10
           retry_on: error
           command: |
-            gh release edit latest --title "Latest ${{ github.sha }}" --latest
-            gh release upload latest dist/release/* --clobber
+            gh release edit ${{ steps.release_tag.outputs.tag }} --title "${{ steps.release_tag.outputs.title }} ${{ github.sha }}" --latest
+            gh release upload ${{ steps.release_tag.outputs.tag }} dist/release/* --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to Release (dev)
+        if: steps.release_tag.outputs.is_latest == 'false'
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 10
+          max_attempts: 3
+          retry_wait_seconds: 10
+          retry_on: error
+          command: |
+            gh release edit ${{ steps.release_tag.outputs.tag }} --title "${{ steps.release_tag.outputs.title }} ${{ github.sha }}" --prerelease || \
+            gh release create ${{ steps.release_tag.outputs.tag }} --title "${{ steps.release_tag.outputs.title }} ${{ github.sha }}" --prerelease --notes "Development build from ${{ github.ref_name }} branch"
+            gh release upload ${{ steps.release_tag.outputs.tag }} dist/release/* --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Notify success
         if: success() && env.DISCORD_WEBHOOK != ''
         run: |
-          curl -H "Content-Type: application/json" -d '{"content":"✅ Build successful! Release updated: https://github.com/${{ github.repository }}/releases/tag/latest"}' $DISCORD_WEBHOOK
+          curl -H "Content-Type: application/json" -d '{"content":"✅ Build successful! Release updated: https://github.com/${{ github.repository }}/releases/tag/${{ steps.release_tag.outputs.tag }}"}' $DISCORD_WEBHOOK
 
       - name: Notify failure
         if: failure() && env.DISCORD_WEBHOOK != ''

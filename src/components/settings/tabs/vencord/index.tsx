@@ -67,6 +67,16 @@ function EquicordSettings() {
     }
     > = [
             {
+                key: "enableBranchSwapping",
+                title: "Enable Branch Swapping",
+                description: "Allow switching between Equicord release branches. This is primarily useful for maintainers and developers testing new features.",
+                restartRequired: false,
+                warning: {
+                    enabled: true,
+                    message: "Using other branches may result in broken features, outdated content, or an unusable experience.",
+                },
+            },
+            {
                 key: "useQuickCss",
                 title: "Enable Custom CSS",
                 description: "Load custom CSS from the QuickCSS editor. This allows you to customize Discord's appearance with your own styles.",

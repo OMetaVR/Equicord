@@ -100,6 +100,9 @@ export interface Settings {
             [varName: string]: string;
         };
     };
+
+    enableBranchSwapping: boolean;
+    selectedBranch: "stable" | "dev";
 }
 
 const DefaultSettings: Settings = {
@@ -142,7 +145,10 @@ const DefaultSettings: Settings = {
 
     ignoreResetWarning: false,
 
-    userCssVars: {}
+    userCssVars: {},
+
+    enableBranchSwapping: false,
+    selectedBranch: "stable"
 };
 
 const settings = !IS_REPORTER ? VencordNative.settings.get() : {} as Settings;

@@ -27,9 +27,25 @@ import { join } from "path";
 import gitHash from "~git-hash";
 import gitRemote from "~git-remote";
 
+import { RendererSettings } from "../settings";
+import { Branch, getReleaseUrl, getTagUrl } from "./branchUtils";
 import { ASAR_FILE, serializeErrors } from "./common";
 
 const API_BASE = `https://api.github.com/repos/${gitRemote}`;
+
+function getSelectedBranch(): Branch {
+    const branch = RendererSettings.plain.selectedBranch;
+    if (branch === "dev" || branch === "stable") return branch;
+    return "stable";
+}
+
+function getBranchReleaseUrl(branch: Branch): string {
+    return getReleaseUrl(API_BASE, branch);
+}
+
+function getBranchTagUrl(branch: Branch): string {
+    return getTagUrl(API_BASE, branch);
+}
 
 function getAsarPath() {
     if (__dirname.endsWith(".asar")) return __dirname;
@@ -54,7 +70,16 @@ async function calculateGitChanges() {
     const isOutdated = await fetchUpdates();
     if (!isOutdated) return [];
 
-    const data = await githubGet(`/compare/${gitHash}...HEAD`);
+    const branch = getSelectedBranch();
+    const tagUrl = getBranchTagUrl(branch);
+    const tagData = await fetchJson(tagUrl, {
+        headers: {
+            Accept: "application/vnd.github+json",
+            "User-Agent": VENCORD_USER_AGENT
+        }
+    });
+
+    const data = await githubGet(`/compare/${gitHash}...${tagData.object.sha}`);
 
     return data.commits.map((c: any) => ({
         hash: c.sha,
@@ -64,9 +89,23 @@ async function calculateGitChanges() {
 }
 
 async function fetchUpdates() {
+    const branch = getSelectedBranch();
+    const releaseUrl = getBranchReleaseUrl(branch);
+    const tagUrl = getBranchTagUrl(branch);
+
     const [releaseData, tagData] = await Promise.all([
-        githubGet("/releases/latest"),
-        githubGet("/git/refs/tags/latest")
+        fetchJson(releaseUrl, {
+            headers: {
+                Accept: "application/vnd.github+json",
+                "User-Agent": VENCORD_USER_AGENT
+            }
+        }),
+        fetchJson(tagUrl, {
+            headers: {
+                Accept: "application/vnd.github+json",
+                "User-Agent": VENCORD_USER_AGENT
+            }
+        })
     ]);
 
     const releaseHash = tagData.object.sha;
@@ -92,6 +131,7 @@ async function applyUpdates() {
 }
 
 ipcMain.handle(IpcEvents.GET_REPO, serializeErrors(() => `https://github.com/${gitRemote}`));
+ipcMain.handle(IpcEvents.GET_SELECTED_BRANCH, serializeErrors(getSelectedBranch));
 ipcMain.handle(IpcEvents.GET_UPDATES, serializeErrors(calculateGitChanges));
 ipcMain.handle(IpcEvents.UPDATE, serializeErrors(fetchUpdates));
 ipcMain.handle(IpcEvents.BUILD, serializeErrors(applyUpdates));
