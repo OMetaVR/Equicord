@@ -9,10 +9,15 @@ on:
             - main
             - dev
 
+concurrency:
+    group: test-${{ github.ref }}
+    cancel-in-progress: true
+
 jobs:
     Test:
         name: Test
         runs-on: ubuntu-latest
+        if: github.event_name == 'pull_request' || github.actor != 'github-actions[bot]'
 
         steps:
             - uses: actions/checkout@v4
