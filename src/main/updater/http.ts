@@ -21,7 +21,7 @@ import { IpcEvents } from "@shared/IpcEvents";
 import { VENCORD_USER_AGENT } from "@shared/vencordUserAgent";
 import { ipcMain } from "electron";
 import { existsSync, statSync } from "fs";
-import { writeFileSync as originalWriteFileSync } from "original-fs";
+import { closeSync, fsyncSync, openSync, writeFileSync as originalWriteFileSync } from "original-fs";
 import { join } from "path";
 
 import gitHash from "~git-hash";
@@ -86,6 +86,10 @@ async function applyUpdates() {
     const asarPath = getAsarPath();
     const data = await fetchBuffer(PendingUpdate);
     originalWriteFileSync(asarPath, data);
+
+    const fd = openSync(__dirname, "r");
+    fsyncSync(fd);
+    closeSync(fd);
 
     PendingUpdate = null;
     return true;
