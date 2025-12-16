@@ -21,7 +21,7 @@ import { IpcEvents } from "@shared/IpcEvents";
 import { VENCORD_USER_AGENT } from "@shared/vencordUserAgent";
 import { ipcMain } from "electron";
 import { existsSync, statSync } from "fs";
-import { closeSync, fsyncSync, openSync, writeFileSync as originalWriteFileSync } from "original-fs";
+import { writeFileSync } from "original-fs";
 import { join } from "path";
 
 import gitHash from "~git-hash";
@@ -37,14 +37,13 @@ function getAsarPath() {
     if (existsSync(asarPath) && statSync(asarPath).isFile()) return asarPath;
     return join(__dirname, ASAR_FILE);
 }
+
 let PendingUpdate: string | null = null;
 
 async function githubGet<T = any>(endpoint: string) {
     return fetchJson<T>(API_BASE + endpoint, {
         headers: {
             Accept: "application/vnd.github+json",
-            // "All API requests MUST include a valid User-Agent header.
-            // Requests with no User-Agent header will be rejected."
             "User-Agent": VENCORD_USER_AGENT
         }
     });
@@ -85,11 +84,7 @@ async function applyUpdates() {
 
     const asarPath = getAsarPath();
     const data = await fetchBuffer(PendingUpdate);
-    originalWriteFileSync(asarPath, data);
-
-    const fd = openSync(__dirname, "r");
-    fsyncSync(fd);
-    closeSync(fd);
+    writeFileSync(asarPath, data, { flush: true });
 
     PendingUpdate = null;
     return true;
