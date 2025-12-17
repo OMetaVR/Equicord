@@ -29,6 +29,21 @@ const logger = new Logger("FavoriteMedia");
 function getMediaFromContextMenu(props: any): { url: string; type: MediaType; poster?: string; } | null {
     const { message, itemSrc, itemHref, target } = props;
     let url = itemSrc || itemHref;
+    let detectedType: MediaType | null = null;
+    let poster: string | undefined;
+
+    if (target) {
+        const videoElement = target.closest?.("video") || (target.tagName === "VIDEO" ? target : null);
+        if (videoElement) {
+            url = url || videoElement.src || videoElement.currentSrc;
+            const sourceElement = videoElement.querySelector?.("source");
+            if (!url && sourceElement) {
+                url = sourceElement.src;
+            }
+            detectedType = "video";
+            poster = videoElement.poster;
+        }
+    }
 
     if (!url && target) {
         url = target.src || target.href || target.currentSrc;
@@ -44,26 +59,48 @@ function getMediaFromContextMenu(props: any): { url: string; type: MediaType; po
 
     if (url.toLowerCase().includes(".gif")) return null;
 
-    const lowerUrl = url.toLowerCase();
-    let type: MediaType;
-
-    if (lowerUrl.match(/\.(mp4|webm|mov)/) || lowerUrl.includes("video")) {
-        type = "video";
-    } else if (lowerUrl.match(/\.(mp3|wav|ogg|flac|m4a)/) || lowerUrl.includes("audio")) {
-        type = "audio";
-    } else if (lowerUrl.match(/\.(png|jpg|jpeg|webp|bmp|svg)/)) {
-        type = "image";
-    } else {
-        type = "file";
+    if (!detectedType && message?.embeds?.length) {
+        for (const embed of message.embeds) {
+            if (embed.video?.url === url || embed.video?.proxyURL === url) {
+                detectedType = "video";
+                poster = embed.thumbnail?.url || embed.thumbnail?.proxyURL;
+                break;
+            }
+            if (embed.thumbnail?.url === url || embed.thumbnail?.proxyURL === url) {
+                if (embed.video) {
+                    url = embed.video.proxyURL || embed.video.url || url;
+                    detectedType = "video";
+                    poster = embed.thumbnail?.proxyURL || embed.thumbnail?.url;
+                }
+                break;
+            }
+        }
     }
 
-    let poster: string | undefined;
-    if (type === "video" && target) {
+    if (!detectedType) {
+        const lowerUrl = url.toLowerCase();
+
+        if (lowerUrl.match(/\.(mp4|webm|mov|avi|mkv|m4v)(\?|$)/)) {
+            detectedType = "video";
+        } else if (lowerUrl.match(/\.(mp3|wav|ogg|flac|m4a|aac|wma)(\?|$)/)) {
+            detectedType = "audio";
+        } else if (lowerUrl.match(/\.(png|jpg|jpeg|webp|bmp|svg|ico|tiff)(\?|$)/)) {
+            detectedType = "image";
+        } else if (lowerUrl.includes("/video/") || lowerUrl.includes("video.")) {
+            detectedType = "video";
+        } else if (lowerUrl.includes("/audio/") || lowerUrl.includes("audio.")) {
+            detectedType = "audio";
+        } else {
+            detectedType = "file";
+        }
+    }
+
+    if (!poster && detectedType === "video" && target) {
         const video = target.closest?.("video") || target;
         poster = video?.poster;
     }
 
-    return { url, type, poster };
+    return { url, type: detectedType, poster };
 }
 
 function extractMediaName(url: string): string {
