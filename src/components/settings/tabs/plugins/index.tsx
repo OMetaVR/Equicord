@@ -357,7 +357,6 @@ export default function PluginSettings() {
         }
     }
 
-
     // Code directly taken from supportHelper.tsx
     const { totalStockPlugins, totalUserPlugins, totalWardenPlugins, enabledStockPlugins, enabledUserPlugins, enabledWardenPlugins, enabledPlugins } = useMemo(() => {
         const isApiPlugin = (plugin: string) => plugin.endsWith("API") || Plugins[plugin].required;
@@ -462,7 +461,6 @@ export default function PluginSettings() {
                 )
                 : <ExcludedPluginsList search={search} />
             }
-
 
             <Divider className={Margins.top20} />
 

@@ -196,7 +196,6 @@ function generatePluginList() {
     const enabledUserPlugins = enabledPlugins.filter(p => PluginMeta[p].userPlugin);
     const enabledWardenPlugins = enabledPlugins.filter(p => PluginMeta[p].wardenPlugin);
 
-
     let content = `**Enabled Plugins (${enabledStockPlugins.length}):**\n${makeCodeblock(enabledStockPlugins.join(", "))}`;
 
     if (enabledUserPlugins.length) {
