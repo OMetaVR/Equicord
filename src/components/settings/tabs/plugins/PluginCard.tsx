@@ -45,6 +45,7 @@ export function PluginCard({ plugin, disabled, onRestartNeeded, onMouseEnter, on
     function toggleEnabled() {
         const wasEnabled = isEnabled();
 
+        // If we're enabling a plugin, make sure all deps are enabled recursively.
         if (!wasEnabled) {
             const { restartNeeded, failures } = startDependenciesRecursive(plugin);
 
@@ -55,18 +56,21 @@ export function PluginCard({ plugin, disabled, onRestartNeeded, onMouseEnter, on
             }
 
             if (restartNeeded) {
+                // If any dependencies have patches, don't start the plugin yet.
                 settings.enabled = true;
                 onRestartNeeded(plugin.name, "enabled");
                 return;
             }
         }
 
+        // if the plugin requires a restart, don't use stopPlugin/startPlugin. Wait for restart to apply changes.
         if (pluginRequiresRestart(plugin)) {
             settings.enabled = !wasEnabled;
             onRestartNeeded(plugin.name, "enabled");
             return;
         }
 
+        // If the plugin is enabled, but hasn't been started, then we can just toggle it off.
         if (wasEnabled && !plugin.started) {
             settings.enabled = !wasEnabled;
             return;
