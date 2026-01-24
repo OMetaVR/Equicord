@@ -107,8 +107,8 @@ export default definePlugin({
             find: 'tutorialId:"whos-online',
             replacement: [
                 {
-                    match: /(?<=\}\):null,).{0,100}— ",\i\]\}\)\]/,
-                    replace: "$self.RoleGroupColor(arguments[0])]"
+                    match: /(#{intl::CHANNEL_MEMBERS_A11Y_LABEL}.+}\):null,).{0,100}?— ",\i\]\}\)\]/,
+                    replace: (_, rest) => `${rest}$self.RoleGroupColor(arguments[0])]`
                 },
             ],
             predicate: () => settings.store.memberList
@@ -128,8 +128,8 @@ export default definePlugin({
             find: "#{intl::GUEST_NAME_SUFFIX})]",
             replacement: [
                 {
-                    match: /#{intl::GUEST_NAME_SUFFIX}\)\].+?\](?=\}\).*?userId:(\i\.id),contextGuildId:(\i))/,
-                    replace: "$&,style:$self.getColorStyle($1,$2),"
+                    match: /#{intl::GUEST_NAME_SUFFIX}.{0,50}?"".{0,100}\](?=\}\))(?<=guildId:(\i),.{0,50}?user:(\i).+?)/,
+                    replace: "$&,style:$self.getColorStyle($2.id,$1),"
                 }
             ],
             predicate: () => settings.store.voiceUsers
@@ -138,7 +138,8 @@ export default definePlugin({
         {
             find: "MessageReactions.render:",
             replacement: {
-                match: /tag:"strong",variant:"text-md\/(medium|normal)"(?<=onContextMenu:.{0,15}\((\i),(\i),\i\).+?)/,
+                // FIXME: (?:medium|normal) is for stable compat
+                match: /tag:"strong",variant:"text-md\/(?:medium|normal)"(?<=onContextMenu:.{0,15}\((\i),(\i),\i\).+?)/,
                 replace: "$&,style:$self.getColorStyle($2?.id,$1?.channel?.id)"
             },
             predicate: () => settings.store.reactorsList,
@@ -147,7 +148,7 @@ export default definePlugin({
         {
             find: ",reactionVoteCounts",
             replacement: {
-                match: /className:\i\.\i,(?="aria-label".{0,200}usernameClass)/,
+                match: /\.SIZE_32.+?variant:"text-md\/normal",className:\i\.\i,(?="aria-label":)/,
                 replace: "$&style:$self.getColorStyle(arguments[0]?.user?.id,arguments[0]?.channel?.id),"
             },
             predicate: () => settings.store.pollResults
@@ -156,7 +157,7 @@ export default definePlugin({
         {
             find: ".SEND_FAILED,",
             replacement: {
-                match: /(?<=\]:(\i)\.isUnsupported.+?,)(?=children:\[)/,
+                match: /(?<=\]:(\i)\.isUnsupported.{0,50}?,)(?=children:\[)/,
                 replace: "style:$self.useMessageColorsStyle($1),"
             },
             predicate: () => settings.store.colorChatMessages
