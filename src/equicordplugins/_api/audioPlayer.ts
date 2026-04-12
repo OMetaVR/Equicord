@@ -24,7 +24,7 @@ export default definePlugin({
                     // Uses the audio as-is if external, otherwise checks for an internal Discord sound.
                     // Also force loads the internal sounds module to account for the second patch group below,
                     // as well as accounting for not calling the module in this patch when this.type is not DISCORD.
-                    match: /(let \i=class.{0,900}?new Audio;\i.src=)((\i\(\d+\)).{0,50}concat\()this.name(,".mp3"\)\))/,
+                    match: /(let \i=class.{0,900}?new Audio;\i.src=)((\i\(\d+\))(?:\(`\.\/\$\{|.{0,50}concat\())this.name((?:\}\.mp3`|,".mp3"\))\))/,
                     replace: "$3;$1this.type!==$self.AudioType.DISCORD?this.audio:$2this.audio$4"
                 },
                 {
@@ -72,7 +72,7 @@ export default definePlugin({
             // regardless of if the "discodo" effect is enabled or not. This is due to the volume setter
             // internally calling the ensureAudio function which is where the internal sounds module is loaded
             // by default. To account for this, the module is force loaded in the first patch in the above group.
-            find: "UPDATE_OPEN_ON_STARTUP",
+            find: '"UPDATE_OPEN_ON_STARTUP"',
             group: true,
             replacement: [
                 {

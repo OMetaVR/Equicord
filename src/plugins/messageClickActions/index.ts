@@ -10,13 +10,18 @@ import NoReplyMentionPlugin from "@plugins/noReplyMention";
 import { Devs, EquicordDevs } from "@utils/constants";
 import { copyWithToast, insertTextIntoChatInputBox } from "@utils/discord";
 import { Logger } from "@utils/Logger";
-import definePlugin, { OptionType } from "@utils/types";
+import definePlugin, { makeRange, OptionType } from "@utils/types";
 import type { Channel, Message } from "@vencord/discord-types";
 import { ApplicationIntegrationType, MessageFlags } from "@vencord/discord-types/enums";
 import { AuthenticationStore, Constants, EditMessageStore, FluxDispatcher, MessageActions, MessageTypeSets, PermissionsBits, PermissionStore, PinActions, RestAPI, Toasts, WindowStore } from "@webpack/common";
 
+import { AdditionalReactEmojisSetting, MAX_ADDITIONAL_REACT_EMOJIS, ReactEmojiSetting } from "./ReactEmojiSetting";
+
 type Modifier = "NONE" | "SHIFT" | "CTRL" | "ALT" | "BACKSPACE" | "DELETE";
 type ClickAction = "NONE" | "DELETE" | "COPY_LINK" | "COPY_ID" | "COPY_CONTENT" | "COPY_USER_ID" | "EDIT" | "REPLY" | "REACT" | "OPEN_THREAD" | "OPEN_TAB" | "EDIT_REPLY" | "QUOTE" | "PIN";
+
+const logger = new Logger("MessageClickActions");
+const ADDITIONAL_REACTION_DELAY_MS = 300; // discord seems to rate limit this for 300ms but that might not be constant
 
 const actions: { label: string; value: ClickAction; }[] = [
     { label: "None", value: "NONE" },
@@ -93,7 +98,20 @@ const focusChanged = () => {
 
 let lastMouseDownTime = 0;
 const onMouseDown = () => {
-    lastMouseDownTime = Date.now();
+    const now = Date.now();
+
+    // TODO: this logic is messy but it works so eh
+    if (mouseDownCount >= 1 && now - lastMouseDownTime < settings.store.clickTimeout) {
+        if (singleClickTimeout) {
+            clearTimeout(singleClickTimeout);
+            singleClickTimeout = null;
+        }
+        doubleClickDetected = true;
+        secondMouseDownTime = now;
+    }
+
+    mouseDownCount++;
+    lastMouseDownTime = now;
 };
 
 function modifierFromKey(e: KeyboardEvent): Modifier | null {
@@ -111,22 +129,34 @@ function isModifierPressed(modifier: Modifier): boolean {
 let doubleClickTimeout: ReturnType<typeof setTimeout> | null = null;
 let singleClickTimeout: ReturnType<typeof setTimeout> | null = null;
 let pendingDoubleClickAction: (() => void) | null = null;
+let doubleClickFired = false;
 
-const settings = definePluginSettings({
-    reactEmoji: {
-        type: OptionType.STRING,
-        description: "Emoji to use for react actions",
-        default: "💀"
-    },
+let mouseDownCount = 0;
+let doubleClickDetected = false;
+let secondMouseDownTime = 0;
+
+export const settings = definePluginSettings({
     singleClickAction: {
         type: OptionType.SELECT,
-        description: "Action on single click with modifier",
+        description: "Action on single click (your messages)",
         options: actions,
         default: "DELETE"
     },
     singleClickModifier: {
         type: OptionType.SELECT,
-        description: "Modifier required for single click action",
+        description: "Modifier required for single click action (your messages)",
+        options: singleClickModifiers,
+        default: "BACKSPACE"
+    },
+    singleClickOthersAction: {
+        type: OptionType.SELECT,
+        description: "Action on single click (others' messages)",
+        options: actions,
+        default: "DELETE"
+    },
+    singleClickOthersModifier: {
+        type: OptionType.SELECT,
+        description: "Modifier required for single click action (others' messages)",
         options: singleClickModifiers,
         default: "BACKSPACE"
     },
@@ -160,6 +190,26 @@ const settings = definePluginSettings({
         options: modifiers,
         default: "NONE"
     },
+    reactEmoji: {
+        type: OptionType.COMPONENT,
+        description: "Emoji to use for react actions.",
+        component: ReactEmojiSetting,
+        default: "💀"
+    },
+    addAdditionalReacts: {
+        type: OptionType.BOOLEAN,
+        description: "Also add additional configured reaction emojis",
+        default: false
+    },
+    additionalReactEmojis: {
+        type: OptionType.COMPONENT,
+        description: `Additional emojis to add when using React action (comma/newline separated, max ${MAX_ADDITIONAL_REACT_EMOJIS})`,
+        component: AdditionalReactEmojisSetting,
+        get hidden() {
+            return !settings.store.addAdditionalReacts;
+        },
+        default: ""
+    },
     disableInDms: {
         type: OptionType.BOOLEAN,
         description: "Disable all click actions in direct messages",
@@ -173,11 +223,24 @@ const settings = definePluginSettings({
     clickTimeout: {
         type: OptionType.NUMBER,
         description: "Timeout to distinguish double/triple clicks (ms)",
+        markers: makeRange(100, 500, 50),
         default: 300
+    },
+    doubleClickHoldThreshold: {
+        type: OptionType.NUMBER,
+        description: "Max hold time for double-click actions (ms). Holding longer allows text selection",
+        markers: makeRange(50, 500, 50),
+        default: 150
+    },
+    deferDoubleClickForTriple: {
+        type: OptionType.BOOLEAN,
+        description: "Delay double-click to allow triple-click actions (disables triple-click when off)",
+        default: false
     },
     selectionHoldTimeout: {
         type: OptionType.NUMBER,
         description: "Timeout to allow text selection (ms)",
+        markers: makeRange(100, 1000, 100),
         default: 300
     },
     quoteWithReply: {
@@ -203,6 +266,51 @@ function showWarning(message: string) {
     });
 }
 
+function clearClickTimeouts() {
+    if (doubleClickTimeout) {
+        clearTimeout(doubleClickTimeout);
+        doubleClickTimeout = null;
+    }
+    if (singleClickTimeout) {
+        clearTimeout(singleClickTimeout);
+        singleClickTimeout = null;
+    }
+}
+
+function resetClickState() {
+    mouseDownCount = 0;
+    doubleClickDetected = false;
+    secondMouseDownTime = 0;
+}
+
+function normalizeEmoji(emoji: string): string | null {
+    const trimmed = emoji.trim();
+    if (!trimmed) return null;
+
+    const customMatch = trimmed.match(/^(?:<(?:(a):)?|:)?([\w-]+?)(?:~\d+)?:([0-9]+)>?$/);
+    if (customMatch) {
+        return `${customMatch[2]}:${customMatch[3]}`;
+    }
+
+    return trimmed;
+}
+
+function getConfiguredReactionEmojis() {
+    const baseEmoji = normalizeEmoji(settings.store.reactEmoji);
+    const configured = [baseEmoji];
+
+    if (settings.store.addAdditionalReacts) {
+        const extra = settings.store.additionalReactEmojis
+            .split(/[\n,]/g)
+            .map(normalizeEmoji)
+            .filter((emoji): emoji is string => Boolean(emoji))
+            .slice(0, MAX_ADDITIONAL_REACT_EMOJIS);
+        configured.push(...extra);
+    }
+
+    return Array.from(new Set(configured.filter((emoji): emoji is string => Boolean(emoji))));
+}
+
 const canSend = (channel: Channel) =>
     !channel.guild_id || PermissionStore.can(PermissionsBits.SEND_MESSAGES, channel);
 
@@ -217,18 +325,13 @@ const canReply = (msg: Message) =>
     MessageTypeSets.REPLYABLE.has(msg.type) && !msg.hasFlag(MessageFlags.EPHEMERAL);
 
 async function toggleReaction(channelId: string, messageId: string, emoji: string, channel: Channel, msg: Message) {
-    const trimmed = emoji.trim();
-    if (!trimmed) return;
+    const emojiParam = normalizeEmoji(emoji);
+    if (!emojiParam) return;
 
     if (channel.guild_id && (!PermissionStore.can(PermissionsBits.ADD_REACTIONS, channel) || !PermissionStore.can(PermissionsBits.READ_MESSAGE_HISTORY, channel))) {
         showWarning("Cannot react: Missing permissions");
         return;
     }
-
-    const customMatch = trimmed.match(/^:?([\w-]+):(\d+)$/);
-    const emojiParam = customMatch
-        ? `${customMatch[1]}:${customMatch[2]}`
-        : trimmed;
 
     const hasReacted = msg.reactions?.some(r => {
         const reactionEmoji = r.emoji.id
@@ -248,12 +351,47 @@ async function toggleReaction(channelId: string, messageId: string, emoji: strin
             });
         }
     } catch (e) {
-        new Logger("MessageClickActions").error("Failed to toggle reaction:", e);
+        logger.error("Failed to toggle reaction:", e);
     }
 }
 
+async function addReaction(channelId: string, messageId: string, emoji: string, channel: Channel) {
+    const emojiParam = normalizeEmoji(emoji);
+    if (!emojiParam) return;
+
+    if (channel.guild_id && (!PermissionStore.can(PermissionsBits.ADD_REACTIONS, channel) || !PermissionStore.can(PermissionsBits.READ_MESSAGE_HISTORY, channel))) {
+        showWarning("Cannot react: Missing permissions");
+        return;
+    }
+
+    try {
+        await RestAPI.put({
+            url: Constants.Endpoints.REACTION(channelId, messageId, emojiParam, "@me")
+        });
+    } catch (e) {
+        logger.error("Failed to add reaction:", e);
+    }
+}
+
+async function reactWithConfiguredEmojis(channel: Channel, msg: Message) {
+    const [primaryEmoji, ...additionalEmojis] = getConfiguredReactionEmojis();
+    if (!primaryEmoji) return;
+
+    await toggleReaction(channel.id, msg.id, primaryEmoji, channel, msg);
+
+    for (const emoji of additionalEmojis) {
+        await new Promise<void>(resolve => setTimeout(resolve, ADDITIONAL_REACTION_DELAY_MS));
+        await addReaction(channel.id, msg.id, emoji, channel);
+    }
+}
+
+function getMessageLink(msg: Message, channel: Channel) {
+    const guildId = channel.guild_id ?? "@me";
+    return `${window.location.origin}/channels/${guildId}/${channel.id}/${msg.id}`;
+}
+
 function copyLink(msg: Message, channel: Channel) {
-    copyWithToast(`https://discord.com/channels/${channel.guild_id ?? "@me"}/${channel.id}/${msg.id}`, "Link copied!");
+    copyWithToast(getMessageLink(msg, channel), "Link copied!");
 }
 
 function togglePin(channel: Channel, msg: Message) {
@@ -300,9 +438,7 @@ function quoteMessage(channel: Channel, msg: Message) {
 }
 
 function openInNewTab(msg: Message, channel: Channel) {
-    const guildId = channel.guild_id ?? "@me";
-    const link = `https://discord.com/channels/${guildId}/${channel.id}/${msg.id}`;
-    VencordNative.native.openExternal(link);
+    VencordNative.native.openExternal(getMessageLink(msg, channel));
 }
 
 function openInThread(msg: Message, channel: Channel) {
@@ -419,7 +555,7 @@ async function executeAction(
             break;
 
         case "REACT":
-            await toggleReaction(channel.id, msg.id, settings.store.reactEmoji, channel, msg);
+            await reactWithConfiguredEmojis(channel, msg);
             event.preventDefault();
             break;
 
@@ -441,7 +577,7 @@ async function executeAction(
 export default definePlugin({
     name: "MessageClickActions",
     description: "Customize click actions on messages.",
-    authors: [Devs.Ven, EquicordDevs.keyages, EquicordDevs.ZcraftElite],
+    authors: [Devs.Ven, EquicordDevs.keircn, EquicordDevs.ZcraftElite, EquicordDevs.omaw],
     isModified: true,
 
     settings,
@@ -459,15 +595,9 @@ export default definePlugin({
         document.removeEventListener("mousedown", onMouseDown);
         WindowStore.removeChangeListener(focusChanged);
 
-        if (doubleClickTimeout) {
-            clearTimeout(doubleClickTimeout);
-            doubleClickTimeout = null;
-        }
-        if (singleClickTimeout) {
-            clearTimeout(singleClickTimeout);
-            singleClickTimeout = null;
-        }
+        clearClickTimeouts();
         pendingDoubleClickAction = null;
+        resetClickState();
     },
 
     onMessageClick(msg, channel, event) {
@@ -481,13 +611,17 @@ export default definePlugin({
 
         if ((settings.store.disableInDms && isDM) || (settings.store.disableInSystemDms && isSystemDM)) return;
 
-        const singleClickAction = settings.store.singleClickAction as ClickAction;
+        const singleClickAction = isMe
+            ? (settings.store.singleClickAction as ClickAction)
+            : (settings.store.singleClickOthersAction as ClickAction);
         const doubleClickAction = isMe
             ? (settings.store.doubleClickAction as ClickAction)
             : (settings.store.doubleClickOthersAction as ClickAction);
         const tripleClickAction = settings.store.tripleClickAction as ClickAction;
 
-        const singleClickModifier = settings.store.singleClickModifier as Modifier;
+        const singleClickModifier = isMe
+            ? (settings.store.singleClickModifier as Modifier)
+            : (settings.store.singleClickOthersModifier as Modifier);
         const doubleClickModifier = settings.store.doubleClickModifier as Modifier;
         const tripleClickModifier = settings.store.tripleClickModifier as Modifier;
 
@@ -495,7 +629,11 @@ export default definePlugin({
         const isDoubleClick = event.detail === 2;
         const isTripleClick = event.detail === 3;
 
-        if (Date.now() - lastMouseDownTime > settings.store.selectionHoldTimeout) return;
+        if (Date.now() - lastMouseDownTime > settings.store.selectionHoldTimeout) {
+            pressedModifiers.clear();
+            resetClickState();
+            return;
+        }
 
         if (singleClickTimeout) {
             clearTimeout(singleClickTimeout);
@@ -503,6 +641,10 @@ export default definePlugin({
         }
 
         if (isTripleClick) {
+            if (!settings.store.deferDoubleClickForTriple) {
+                resetClickState();
+                return;
+            }
             if (doubleClickTimeout) {
                 clearTimeout(doubleClickTimeout);
                 doubleClickTimeout = null;
@@ -511,28 +653,42 @@ export default definePlugin({
 
             if (isModifierPressed(tripleClickModifier) && tripleClickAction !== "NONE") {
                 executeAction(tripleClickAction, msg, channel, event);
+                pressedModifiers.clear();
             }
+            doubleClickFired = false;
+            resetClickState();
             return;
         }
 
         const canDoubleClick = (isModifierPressed(doubleClickModifier) || doubleClickModifier === "NONE") && doubleClickAction !== "NONE";
-        const canTripleClick = isModifierPressed(tripleClickModifier) && tripleClickAction !== "NONE";
+        const canTripleClick =
+            settings.store.deferDoubleClickForTriple &&
+            isModifierPressed(tripleClickModifier) &&
+            tripleClickAction !== "NONE";
+        const shouldDeferDoubleClick =
+            canDoubleClick &&
+            canTripleClick &&
+            doubleClickModifier === tripleClickModifier;
 
         if (isDoubleClick) {
+            doubleClickFired = true;
+
             if (singleClickTimeout) {
                 clearTimeout(singleClickTimeout);
                 singleClickTimeout = null;
             }
 
+            const isQuickDoubleClick = !doubleClickDetected || (Date.now() - secondMouseDownTime < settings.store.doubleClickHoldThreshold);
             const executeDoubleClick = () => {
                 if (!canSend(channel)) return;
                 if (msg.deleted === true) return;
-                if (canDoubleClick) {
+                if (canDoubleClick && isQuickDoubleClick) {
                     executeAction(doubleClickAction, msg, channel, event);
+                    pressedModifiers.clear();
                 }
             };
 
-            if (canTripleClick && canDoubleClick) {
+            if (shouldDeferDoubleClick) {
                 if (doubleClickTimeout) {
                     clearTimeout(doubleClickTimeout);
                 }
@@ -545,19 +701,30 @@ export default definePlugin({
             } else {
                 executeDoubleClick();
             }
-            event.preventDefault();
+
+            if (isQuickDoubleClick) {
+                event.preventDefault();
+            }
+
+            resetClickState();
             return;
         }
 
         if (isSingleClick) {
-            const shouldExecuteSingle = isModifierPressed(singleClickModifier) && singleClickAction !== "NONE";
+            doubleClickFired = false;
+
             const executeSingleClick = () => {
-                if (shouldExecuteSingle) {
+                if (!doubleClickFired && !doubleClickDetected && isModifierPressed(singleClickModifier) && singleClickAction !== "NONE") {
                     executeAction(singleClickAction, msg, channel, event);
+                    pressedModifiers.clear();
                 }
+                resetClickState();
             };
 
-            if (canDoubleClick && shouldExecuteSingle && singleClickModifier === "NONE") {
+            const canDoubleClickWithCurrentModifier =
+                doubleClickAction !== "NONE" &&
+                (doubleClickModifier === "NONE" || isModifierPressed(doubleClickModifier));
+            if (canDoubleClickWithCurrentModifier && singleClickModifier === "NONE") {
                 singleClickTimeout = setTimeout(() => {
                     executeSingleClick();
                     singleClickTimeout = null;

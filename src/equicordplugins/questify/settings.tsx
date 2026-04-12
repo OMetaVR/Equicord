@@ -6,7 +6,10 @@
 
 import { defaultAudioNames, playAudio } from "@api/AudioPlayer";
 import { definePluginSettings } from "@api/Settings";
-import { Divider, ErrorBoundary, Heading, Paragraph } from "@components/index";
+import { Divider } from "@components/Divider";
+import ErrorBoundary from "@components/ErrorBoundary";
+import { Heading } from "@components/Heading";
+import { Paragraph } from "@components/Paragraph";
 import { Logger } from "@utils/Logger";
 import { makeRange, OptionType } from "@utils/types";
 import { Button, ColorPicker, ContextMenuApi, Menu, Select, Slider, TextInput, useEffect, useRef, useState } from "@webpack/common";
@@ -683,6 +686,7 @@ function DisableQuestsSetting(): JSX.Element {
         disableFriendsListActiveNowPromotion,
         disableMembersListActivelyPlayingIcon,
         makeMobileQuestsDesktopCompatible,
+        completeVideoQuestsQuicker,
         completeVideoQuestsInBackground,
         completeGameQuestsInBackground,
         completeAchievementQuestsInBackground,
@@ -699,6 +703,7 @@ function DisableQuestsSetting(): JSX.Element {
         "disableFriendsListActiveNowPromotion",
         "disableMembersListActivelyPlayingIcon",
         "makeMobileQuestsDesktopCompatible",
+        "completeVideoQuestsQuicker",
         "completeVideoQuestsInBackground",
         "completeGameQuestsInBackground",
         "completeAchievementQuestsInBackground",
@@ -719,6 +724,7 @@ function DisableQuestsSetting(): JSX.Element {
         { label: "Complete Watch Video Quests in Background", value: "video-quests-background", selected: completeVideoQuestsInBackground, type: "modification" },
         { label: "Complete Play Game/Activity Quests in Background", value: "game-quests-background", selected: completeGameQuestsInBackground, type: "modification" },
         { label: "Complete Task in Activity Quests in Background", value: "achievement-quests-background", selected: completeAchievementQuestsInBackground, type: "modification" },
+        { label: "Complete Watch Video Quests Quicker", value: "video-quests-quicker", selected: completeVideoQuestsQuicker, type: "modification" },
         { label: "Make Mobile Quests Desktop Compatible", value: "mobile-desktop-compatible", selected: makeMobileQuestsDesktopCompatible, type: "modification" },
         { label: "Notify on Auto-Complete", value: "notify-on-complete", selected: notifyOnQuestComplete, type: "modification" },
     ];
@@ -749,6 +755,7 @@ function DisableQuestsSetting(): JSX.Element {
         settings.store.disableFriendsListActiveNowPromotion = enabled.includes("friends-list");
         settings.store.disableMembersListActivelyPlayingIcon = enabled.includes("members-list");
         settings.store.makeMobileQuestsDesktopCompatible = enabled.includes("mobile-desktop-compatible");
+        settings.store.completeVideoQuestsQuicker = enabled.includes("video-quests-quicker");
         settings.store.completeVideoQuestsInBackground = enabled.includes("video-quests-background");
         settings.store.completeGameQuestsInBackground = enabled.includes("game-quests-background");
         settings.store.completeAchievementQuestsInBackground = enabled.includes("achievement-quests-background");
@@ -821,12 +828,19 @@ function DisableQuestsSetting(): JSX.Element {
                         The <span className={q("inline-code-block")}>Complete Task in Activity Quests in Background</span> option
                         will immediately mark Task in Activity Quests as completed when started.
                         <br /><br />
+                        The <span className={q("inline-code-block")}>Complete Video Quests Quicker</span> option
+                        uses Discord's progress leeway and elapsed enrollment time for Video Quests. When disabled, Video
+                        Quests wait for the full duration at 1x speed, which may appear less suspicious to their systems.
+                        <br /><br />
                         You still must start the Quests manually. The first click will start the Quests in the background.
                         For Video Quests, subsequent clicks will open the video modal as normal. For Activity Quests, subsequent clicks
                         will open the activity as normal. To abort the Quests, you can open the context menu on the Quest tile and
                         select <span className={q("inline-code-block")}>Stop Auto-Complete</span>.
-                        <br /><br />
-                        Using any of the Auto-Complete options is against Discord's TOS. Use at your own risk.
+                    </Paragraph>
+                    <Paragraph className={q("form-warning")}>
+                        Using any of the Auto-Complete options is against <a href="https://discord.com/safety/platform-manipulation-policy-explainer" target="_blank" rel="noreferrer">Discord's TOS</a>. Discord has been known to warn users
+                        that automate Quest completion with threat of loss of access to Quests. There has been no reports of account
+                        limitations or bans, but Discord may change their stance at any time. Use at your own risk.
                     </Paragraph>
                     <DynamicDropdown
                         placeholder="Select which Quest features to modify."
@@ -1688,6 +1702,15 @@ export const settings = definePluginSettings({
         default: true,
         hidden: true
     },
+    completeVideoQuestsQuicker: {
+        type: OptionType.BOOLEAN,
+        description: "Use Discord's progress leeway and elapsed enrollment time for Video Quest auto-completion.",
+        default: false,
+        hidden: true,
+        onChange: () => {
+            rerenderQuests();
+        }
+    },
     completeVideoQuestsInBackground: {
         type: OptionType.BOOLEAN,
         description: "Complete Video Quests in the background after the video duration has passed.",
@@ -1969,5 +1992,11 @@ export const settings = definePluginSettings({
         description: "An array of Quest IDs that are ignored.",
         default: {} as Record<string, string[]>,
         hidden: true,
-    }
+    },
+    resumeQuestIDs: {
+        type: OptionType.CUSTOM,
+        description: "An array of Quest IDs that are being auto-completed in the background.",
+        default: { "watch": [], "play": [], "achievement": [] } as Record<"watch" | "play" | "achievement", string[]>, // Type to Quest ID
+        hidden: true,
+    },
 });

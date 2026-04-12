@@ -30,7 +30,7 @@ import { ContextMenuApi, Menu, Toasts, UserStore } from "@webpack/common";
 
 import Plugins, { PluginMeta } from "~plugins";
 
-import { EquicordDonorModal, VencordDonorModal } from "./modals";
+import { EquicordDonorModal, EquicordTranslatorModal, VencordDonorModal } from "./modals";
 
 const CONTRIBUTOR_BADGE = "https://cdn.discordapp.com/emojis/1092089799109775453.png?size=64";
 const EQUICORD_CONTRIBUTOR_BADGE = "https://equicord.org/assets/favicon.png";
@@ -115,7 +115,7 @@ async function loadBadges(url: string, noCache = false) {
 async function loadAllBadges(noCache = false) {
     const [vencordBadges, equicordBadges, customBadges] = await Promise.all([
         loadBadges("https://badges.vencord.dev/badges.json", noCache),
-        loadBadges("https://equicord.org/badges.json", noCache),
+        loadBadges("https://badge.equicord.org/badges.json", noCache),
         loadBadges("https://raw.githubusercontent.com/OMetaVR/Equicord/main/badges.json", noCache).catch(() => ({}))
     ]);
 
@@ -165,7 +165,7 @@ export default definePlugin({
                     replace: "...$1.props,$&"
                 },
                 {
-                    match: /(?<=forceOpen:.{0,40}?\i\((\i)\.id\).{0,100}?)children:/,
+                    match: /(?<=forceOpen:.{0,40}?ariaHidden:!0,)children:(?=.{0,50}?(\i)\.id)/,
                     replace: "children:$1.component?$self.renderBadgeComponent({...$1}) :"
                 },
                 // handle onClick and onContextMenu
@@ -280,7 +280,7 @@ export default definePlugin({
                 ContextMenuApi.openContextMenu(event, () => <BadgeContextMenu badge={badge} />);
             },
             onClick() {
-                return EquicordDonorModal();
+                return badge.tooltip === "Equicord Translator" ? EquicordTranslatorModal() : EquicordDonorModal();
             },
         } satisfies ProfileBadge));
     },

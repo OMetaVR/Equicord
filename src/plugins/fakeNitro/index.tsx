@@ -141,7 +141,7 @@ const settings = definePluginSettings({
         description: "Whether to disable the embed permission check when sending fake emojis and stickers",
         type: OptionType.BOOLEAN,
         default: false
-    }
+    },
 });
 
 function hasPermission(channelId: string, permission: bigint) {
@@ -299,13 +299,13 @@ export default definePlugin({
                 {
                     // Patch the rendered message content to add fake nitro emojis or remove sticker links
                     predicate: () => settings.store.transformEmojis || settings.store.transformStickers,
-                    match: /(?=return{hasSpoilerEmbeds:\i,content:(\i))/,
+                    match: /(?=return{hasSpoilerEmbeds:\i,hasBailedAst:\i,content:(\i))/,
                     replace: (_, content) => `${content}=$self.patchFakeNitroEmojisOrRemoveStickersLinks(${content},arguments[2]?.formatInline);`
                 }
             ]
         },
         {
-            find: "}renderEmbeds(",
+            find: "}renderStickersAccessories(",
             replacement: [
                 {
                     // Call our function to decide whether the embed should be ignored or not
@@ -376,7 +376,7 @@ export default definePlugin({
                 match: /(?<=type:"(?:SOUNDBOARD_SOUNDS_RECEIVED|GUILD_SOUNDBOARD_SOUND_CREATE|GUILD_SOUNDBOARD_SOUND_UPDATE|GUILD_SOUNDBOARD_SOUNDS_UPDATE)".+?available:)\i\.available/g,
                 replace: "true"
             }
-        }
+        },
     ],
 
     get guildId() {

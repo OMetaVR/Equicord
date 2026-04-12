@@ -6,15 +6,16 @@
 
 import { plugins } from "@api/PluginManager";
 import { definePluginSettings } from "@api/Settings";
+import { QrCodeIcon } from "@components/Icons";
 import { Paragraph } from "@components/Paragraph";
-import SettingsPlugin, { settingsSectionMap } from "@plugins/_core/settings";
+import SettingsPlugin from "@plugins/_core/settings";
 import { EquicordDevs } from "@utils/constants";
 import { getIntlMessage } from "@utils/discord";
+import { removeFromArray } from "@utils/misc";
 import definePlugin, { OptionType } from "@utils/types";
 import { Button } from "@webpack/common";
 
 import { preload, unload } from "./images";
-import { QrCodeIcon } from "./ui";
 import openQrModal from "./ui/modals/QrModal";
 
 const settings = definePluginSettings({
@@ -59,29 +60,17 @@ export default definePlugin({
     qrModalOpen: false,
 
     start() {
-        const { customEntries, customSections } = SettingsPlugin;
-
-        customEntries.push({
+        SettingsPlugin.customEntries.push({
             key: "equicord_login_with_qr",
             title: getIntlMessage("USER_SETTINGS_SCAN_QR_CODE"),
             Component: openQrModal,
             Icon: QrCodeIcon
         });
-
-        customSections.push(() => ({
-            section: "EquicordLoginWithQR",
-            label: getIntlMessage("USER_SETTINGS_SCAN_QR_CODE"),
-            searchableTitles: [getIntlMessage("USER_SETTINGS_SCAN_QR_CODE")],
-            element: openQrModal,
-            id: "LoginWithQR",
-        }));
-
-        settingsSectionMap.push(["EquicordLoginWithQR", "equicord_login_with_qr"]);
-
         preload();
     },
 
     stop() {
+        removeFromArray(SettingsPlugin.customEntries, e => e.key === "equicord_login_with_qr");
         unload();
     },
 });

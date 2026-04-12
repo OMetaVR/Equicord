@@ -150,9 +150,9 @@ export default definePlugin({
     managedStyle,
     patches: [
         {
-            find: '"CustomStatusModalWithPreview"',
+            find: '="custom-status-input";',
             replacement: {
-                match: /(?<=(\i)\.state\).*?)\{text:\i\.\i\.\i\(\i\.\i#{intl::SAVE}\)/,
+                match: /(?<=(\i)\?\.state\?\?.*?)\{text:\i\.\i\.\i\(\i\.\i#{intl::SAVE}\)/,
                 replace: "$self.renderRememberButton($1),$&"
             }
         },

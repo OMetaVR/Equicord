@@ -7,7 +7,7 @@
 import { disableStyle, enableStyle } from "@api/Styles";
 import { EquicordDevs } from "@utils/constants";
 import definePlugin from "@utils/types";
-import { ChannelRTCStore, IconUtils, UserStore, VoiceStateStore } from "@webpack/common";
+import { ChannelRTCStore, ChannelStore, UserStore, VoiceStateStore } from "@webpack/common";
 
 import style from "./style.css?managed";
 
@@ -25,13 +25,18 @@ export default definePlugin({
         },
     ],
 
-    getVoiceBackgroundStyles({ className, participantUserId }: any) {
-        if (!className.includes("tile") || !participantUserId) return;
+    getVoiceBackgroundStyles({ className, participantUserId }: { className?: string; participantUserId?: string; }) {
+        if (!className?.includes("tile") || !participantUserId) return;
 
         const user = UserStore.getUser(participantUserId);
-        const channelId = VoiceStateStore.getVoiceStateForUser(participantUserId)?.channelId!;
+        if (!user) return;
+
+        const channelId = VoiceStateStore.getVoiceStateForUser(participantUserId)?.channelId;
+        if (!channelId) return;
+
+        const guildId = ChannelStore.getChannel(channelId)?.guild_id;
         const isSpeaking = ChannelRTCStore.getSpeakingParticipants(channelId).some(p => p.user.id === participantUserId && p.speaking);
-        const avatarUrl = IconUtils.getUserAvatarURL(user, isSpeaking, 1024);
+        const avatarUrl = user.getAvatarURL(guildId, 1024, isSpeaking);
 
         return {
             "--full-res-avatar": `url(${avatarUrl})`

@@ -10,7 +10,7 @@ import { playAudio } from "@api/AudioPlayer";
 import { NavContextMenuPatchCallback } from "@api/ContextMenu";
 import { definePluginSettings } from "@api/Settings";
 import { Button } from "@components/Button";
-import { EquicordDevs } from "@utils/constants";
+import { Devs } from "@utils/constants";
 import { classNameFactory } from "@utils/css";
 import definePlugin, { OptionType } from "@utils/types";
 import { findComponentByCodeLazy } from "@webpack";
@@ -30,7 +30,7 @@ function GuildSelector() {
     return (
         <SearchableSelect
             options={options}
-            value={options.find(o => o.value === soundGuildId)}
+            value={options.find(o => o.value === soundGuildId)?.value}
             placeholder="Select a server..."
             maxVisibleItems={6}
             closeOnSelect={true}
@@ -104,7 +104,7 @@ let original: typeof ChannelActions.selectVoiceChannel;
 export default definePlugin({
     name: "ExitSounds",
     description: "Play soundboard sounds when you disconnect from voice.",
-    authors: [EquicordDevs.prism],
+    authors: [Devs.prism],
     dependencies: ["AudioPlayerAPI"],
     settings,
 

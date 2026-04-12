@@ -26,7 +26,7 @@ import { Devs } from "@utils/constants";
 import definePlugin, { OptionType } from "@utils/types";
 import { Guild } from "@vencord/discord-types";
 import { findByCodeLazy, findByPropsLazy, findStoreLazy, mapMangledModuleLazy } from "@webpack";
-import { ChannelStore, Menu } from "@webpack/common";
+import { ChannelStore, Menu, UserStore } from "@webpack/common";
 
 const { updateGuildNotificationSettings } = findByPropsLazy("updateGuildNotificationSettings");
 const { toggleShowAllChannels } = mapMangledModuleLazy(".onboardExistingMember(", {
@@ -162,7 +162,7 @@ export default definePlugin({
         {
             find: ",acceptInvite(",
             replacement: {
-                match: /INVITE_ACCEPT_SUCCESS.+?,(\i)=null!=.+?;/,
+                match: /INVITE_ACCEPT_SUCCESS.+?,(\i)=\i\?\.guild_id.+?;/,
                 replace: (m, guildId) => `${m}$self.applyDefaultSettings(${guildId});`
             }
         },
@@ -175,5 +175,11 @@ export default definePlugin({
         }
     ],
     settings,
-    applyDefaultSettings
+    applyDefaultSettings,
+    flux: {
+        GUILD_JOIN_REQUEST_UPDATE({ guildId, request, status }) {
+            if (status === "APPROVED" && request.user_id === UserStore.getCurrentUser().id)
+                applyDefaultSettings(guildId);
+        }
+    }
 });

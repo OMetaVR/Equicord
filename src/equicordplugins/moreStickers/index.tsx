@@ -18,7 +18,12 @@ import { getStickerPack, getStickerPackMetas } from "./stickers";
 import { StickerPack, StickerPackMeta } from "./types";
 import { cl, FFmpegStateContext, loadFFmpeg } from "./utils";
 
-const settings = definePluginSettings({
+export const settings = definePluginSettings({
+    promptToUpload: {
+        type: OptionType.BOOLEAN,
+        description: "Inserts the sticker into your chatbar instead of sending immediately",
+        default: false
+    },
     packs: {
         type: OptionType.COMPONENT,
         description: "Packs",
@@ -47,10 +52,10 @@ export default definePlugin({
             }]
         },
         {
-            find: ".gifts)",
+            find: ".GIFT_PROMOTION]).",
             replacement: [
                 {
-                    match: /(?<=(,\(null==\(\i=\i\.stickers\)\?void 0.*?\i\.push\(\(.{0,100})\},"sticker"\)\))/,
+                    match: /(?<=(,\i\.stickers\?\.button.{0,50}\i\.push\(\(.{0,100})\},"sticker"\)\))/,
                     replace: "$1,stickersType:\"stickers+\"},\"stickers+\"))"
                 },
             ]
@@ -72,13 +77,6 @@ export default definePlugin({
                 }
             ]
         },
-        {
-            find: '==="remove_text"',
-            replacement: {
-                match: /,\i\.insertText=\i=>{[\w ;]*?1===\i\.length&&.+?==="remove_text"/,
-                replace: ",$self.textEditor=arguments[0]$&"
-            }
-        }
     ],
     stickerButton({
         innerClassName,

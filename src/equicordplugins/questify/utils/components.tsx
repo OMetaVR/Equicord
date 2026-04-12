@@ -4,20 +4,49 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { ErrorBoundary } from "@components/index";
+import ErrorBoundary from "@components/ErrorBoundary";
 import { findComponentByCodeLazy } from "@webpack";
 import { SearchableSelect, useState } from "@webpack/common";
 import { JSX } from "react";
 
+import { settings } from "../settings";
 import { formatLowerBadge } from "./misc";
 
 // GuildlessServerListItem's built-in pill does not support unread state.
 export const GuildlessServerListItemComponent = findComponentByCodeLazy("tooltip:", "lowerBadgeSize:");
 export const GuildedServerListItemPillComponent = findComponentByCodeLazy('"pill":"empty"');
-export const ServerListItemLowerBadgeComponent = findComponentByCodeLazy("BADGE_NOTIFICATION_BACKGROUND", '"renderBadgeCount"');
+export const ServerListItemLowerBadgeComponent = findComponentByCodeLazy("BADGE_NOTIFICATION_BACKGROUND", "let{count:");
 export const ServerListItemUpperBadgeComponent = findComponentByCodeLazy("{icon:", ".ROUND,disableColor");
-export const RadioGroup = findComponentByCodeLazy(',["label","description"');
+export const RadioGroup = findComponentByCodeLazy(",{label:", ",description:", ",required:", ",errorMessage:", ",children:");
 export const QuestTile = findComponentByCodeLazy(".rowIndex,trackGuildAndChannelMetadata");
+
+export class ActiveQuestIntervalsMap extends Map<string, { progressTimeout: NodeJS.Timeout; rerenderTimeout: NodeJS.Timeout; progress: number; type: string; }> {
+    set(key: string, value: { progressTimeout: NodeJS.Timeout; rerenderTimeout: NodeJS.Timeout; progress: number; type: string; }): this {
+        const { resumeQuestIDs } = settings.store;
+
+        settings.store.resumeQuestIDs = {
+            watch: resumeQuestIDs.watch.filter((id: string) => id !== key),
+            play: resumeQuestIDs.play.filter((id: string) => id !== key),
+            achievement: resumeQuestIDs.achievement.filter((id: string) => id !== key),
+        };
+
+        settings.store.resumeQuestIDs[value.type].push(key);
+
+        return super.set(key, value);
+    }
+
+    delete(key: string): boolean {
+        const { resumeQuestIDs } = settings.store;
+
+        settings.store.resumeQuestIDs = {
+            watch: resumeQuestIDs.watch.filter((id: string) => id !== key),
+            play: resumeQuestIDs.play.filter((id: string) => id !== key),
+            achievement: resumeQuestIDs.achievement.filter((id: string) => id !== key),
+        };
+
+        return super.delete(key);
+    }
+}
 
 export enum QuestRewardType {
     UNKNOWN = 0,

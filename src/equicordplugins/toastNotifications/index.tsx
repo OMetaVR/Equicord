@@ -22,7 +22,7 @@ import definePlugin, { makeRange, OptionType } from "@utils/types";
 import { Channel, Message, User } from "@vencord/discord-types";
 import { MessageType, RelationshipType } from "@vencord/discord-types/enums";
 import { findByPropsLazy, findStore } from "@webpack";
-import { Button, ChannelStore, GuildRoleStore, NavigationRouter, RelationshipStore, SelectedChannelStore, StreamerModeStore, UserStore } from "@webpack/common";
+import { Button, ChannelStore, GuildRoleStore, IconUtils, NavigationRouter, RelationshipStore, SelectedChannelStore, StreamerModeStore, UserStore } from "@webpack/common";
 import { ReactNode } from "react";
 
 import { NotificationData, showNotification } from "./components/Notifications";
@@ -34,6 +34,7 @@ let notifyFor: string[] = [];
 // Functional variables.
 const MuteStore = findByPropsLazy("isSuppressEveryoneEnabled");
 const SelectedChannelActionCreators = findByPropsLazy("selectPrivateChannel");
+const ChannelRTCActions = findByPropsLazy("updateChatOpen", "toggleParticipants");
 const UserUtils = findByPropsLazy("getGlobalName");
 
 // Adjustable variables.
@@ -243,7 +244,7 @@ export default definePlugin({
             // Prepare the notification.
             const Notification: NotificationData = {
                 title: getName(message.author),
-                icon: `https://cdn.discordapp.com/avatars/${message.author.id}/${message.author.avatar}.png?size=128`,
+                icon: IconUtils.getUserAvatarURL(message.author),
                 body: message.content,
                 attachments: message.attachments?.length,
                 richBody: null,
@@ -395,6 +396,16 @@ function switchChannels(guildId: string | null, channelId: string) {
     NavigationRouter.transitionTo(`/channels/${guildId ?? "@me"}/${channelId}/`);
 }
 
+function navigateToChannel(channel: Channel) {
+    if (channel.isGuildVocal?.()) {
+        switchChannels(channel.guild_id, channel.id);
+        ChannelRTCActions.updateChatOpen(channel.id, true);
+        return;
+    }
+
+    switchChannels(channel.guild_id, channel.id);
+}
+
 enum NotificationLevel {
     ALL_MESSAGES = 0,
     ONLY_MENTIONS = 1,
@@ -453,12 +464,12 @@ async function handleGuildMessage(message: Message) {
     // Prepare the notification.
     const Notification: NotificationData = {
         title: `${getName(message.author)} (#${channel.name})`,
-        icon: `https://cdn.discordapp.com/avatars/${message.author.id}/${message.author.avatar}.png?size=128`,
+        icon: IconUtils.getUserAvatarURL(message.author),
         body: message.content,
         attachments: message.attachments?.length,
         richBody: null,
         permanent: false,
-        onClick() { switchChannels(channel.guild_id, channel.id); }
+        onClick() { navigateToChannel(channel); }
     };
 
     if (message.embeds?.length !== 0) {
@@ -527,7 +538,6 @@ async function handleGuildMessage(message: Message) {
         Notification.icon = undefined;
     }
 
-    console.log("noti that went through: " + t);
     await showNotification(Notification);
 
 }
@@ -538,7 +548,7 @@ async function relationshipAdd(user: User, type: Number) {
 
     const Notification: NotificationData = {
         title: "",
-        icon: user.getAvatarURL(),
+        icon: IconUtils.getUserAvatarURL(user),
         body: "",
         attachments: 0,
     };
@@ -567,7 +577,7 @@ async function relationshipAdd(user: User, type: Number) {
 function showExampleNotification(): Promise<void> {
     const Notification: NotificationData = {
         title: "Example Notification",
-        icon: `https://cdn.discordapp.com/avatars/${UserStore.getCurrentUser().id}/${UserStore.getCurrentUser().avatar}.png?size=128`,
+        icon: IconUtils.getUserAvatarURL(UserStore.getCurrentUser()),
         body: "This is an example toast notification!",
         attachments: 0,
         permanent: false

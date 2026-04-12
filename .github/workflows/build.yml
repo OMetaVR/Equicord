@@ -36,6 +36,13 @@ jobs:
       - name: Build
         run: pnpm buildStandalone
 
+      - name: Generate plugin lists
+        run: |
+          pnpm generatePluginJson dist/plugins.json
+          pnpm generateEquicordPluginJson dist/equicordplugins.json
+          pnpm generateVencordPluginJson dist/vencordplugins.json
+          pnpm generateDevsList dist/devs.json
+
       - name: Collect files to be released
         run: |
           cd dist
@@ -43,7 +50,7 @@ jobs:
 
           cp browser/browser.* release
           cp Equicord.user.{js,js.LEGAL.txt} release
-          cp *.{zip,asar} release
+          cp *.{json,zip,asar} release
           cp desktop/* release
 
           for file in equibop/*; do
@@ -52,6 +59,8 @@ jobs:
           done
 
           find release -size 0 -delete
+          rm -f release/package.json
+          rm -f release/*.map
 
       - name: Update latest tag
         run: |
@@ -75,6 +84,28 @@ jobs:
         if: success() && env.DISCORD_WEBHOOK != ''
         run: |
           curl -H "Content-Type: application/json" -d '{"content":"✅ Build successful! Release updated: https://github.com/${{ github.repository }}/releases/tag/latest"}' $DISCORD_WEBHOOK
+
+      - name: Upload Plugin JSONs to Equibored repo
+        if: success() && secrets.ETOKEN != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.ETOKEN }}
+          REPO: Equicord/Equibored
+          USERNAME: GitHub-Actions
+        run: |
+          git config --global user.name "GitHub-Actions"
+          git config --global user.email actions@github.com
+          git clone https://$USERNAME:$GITHUB_TOKEN@github.com/$REPO.git plugins
+          cd plugins
+
+          cp ../dist/release/*.json .
+          git add -A
+
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+
+          git commit -m "Plugins for https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA"
+          git push --force https://$USERNAME:$GITHUB_TOKEN@github.com/$REPO.git
 
       - name: Notify failure
         if: failure() && env.DISCORD_WEBHOOK != ''

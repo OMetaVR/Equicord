@@ -27,24 +27,23 @@ export default definePlugin({
     patches: [
         {
             // Patch activity icons
-            find: "isBlockedOrIgnored(null",
+            find: '"ActivityStatus"),',
             replacement: [
                 {
-                    match: /(?<=className:\i,children:\[).*?(?=\i\(\),\i&&)/,
+                    match: /(?<=className:\i,children:\[).*?(?=\i\(\),\i&&)/g,
                     replace: "",
                     predicate: () => settings.store.removeGameActivityStatus,
                 },
                 {
-                    match: /(?<=hideTooltip:.{0,4}}=(\i).*?{}\))\]/,
+                    match: /(?<=hideTooltip:.{0,4}}=(\i).*?{}\))\]/g,
                     replace: ",$self.patchActivityList($1)]",
                     predicate: () => settings.store.memberList,
                 }
             ],
-            all: true
         },
         {
             // Show all activities in the user popout/sidebar
-            find: /\.POPOUT,onClose:\i}\),nicknameIcons:.+?\.isProvisional/,
+            find: /onOpenUserProfileModal:\i,onClose:\i\}\),null/,
             replacement: {
                 match: /((\i)=.{0,10}(\i)\.id\).*?,onInteraction:\i\}\),).{0,250}onClose:\i\}\)/,
                 replace: "$1$self.showAllActivitiesComponent({ activity: $2, user: $3 })"

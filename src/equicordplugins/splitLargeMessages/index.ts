@@ -19,7 +19,7 @@ const canSplit: () => boolean = () => {
 };
 
 const autoMaxLength = () => {
-    const hasNitro = UserStore.getCurrentUser().premiumType === 2;
+    const hasNitro = UserStore.getCurrentUser()?.premiumType === 2;
     return hasNitro ? 4000 : 2000;
 };
 
@@ -134,9 +134,9 @@ export default definePlugin({
         },
 
         {
-            find: '(this,"hideAutocomplete"', // disable file conversion
+            find: ".onHideAutocomplete?", // disable file conversion
             replacement: {
-                match: /if\(\i.length>\i\)/,
+                match: /(?<=getData\(\i\.type\);)if\(\i.length>\i\)/,
                 replace: "if(false)",
             },
         }

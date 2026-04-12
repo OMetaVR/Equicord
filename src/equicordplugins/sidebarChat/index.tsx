@@ -69,9 +69,9 @@ const WindowLaunchIcon = findComponentByCodeLazy("1-1h6a1 1 0 1 0 0-2H5Z");
 const XSmallIcon = findComponentByCodeLazy("1.4L12 13.42l5.3 5.3Z");
 const Chat = findComponentByCodeLazy("filterAfterTimestamp:", "chatInputType");
 const Resize = findComponentByCodeLazy("sidebarType:", "RESIZE_HANDLE_WIDTH)");
-const ChannelHeader = findComponentByCodeLazy(".GUILD_ANNOUNCEMENT", '"channel-".concat');
+const ChannelHeader = findComponentByCodeLazy(".GUILD_ANNOUNCEMENT", "`channel-");
 const PopoutWindow = findComponentByCodeLazy("Missing guestWindow reference");
-const FullChannelView = findComponentByCodeLazy("showFollowButton:(null");
+const FullChannelView = findComponentByCodeLazy(/showFollowButton:\i\?\.type===/);
 const WanderingCubesLoading = findComponentByCodeLazy('="wanderingCubes"');
 
 const ChatInputTypes = findByPropsLazy("FORM", "NORMAL");
@@ -82,7 +82,7 @@ const ChannelSectionStore = findStoreLazy("ChannelSectionStore");
 
 const requireChannelContextMenu = extractAndLoadChunksLazy(
     ["&&this.handleActivitiesPopoutClose(),"],
-    new RegExp(DefaultExtractAndLoadChunksRegex.source + ".{1,150}isFavorite")
+    new RegExp(DefaultExtractAndLoadChunksRegex.source + ".{1,250}hasActiveThread")
 );
 
 const requireForumView = extractAndLoadChunksLazy(
@@ -136,15 +136,15 @@ export default definePlugin({
             group: true,
             replacement: [
                 {
-                    match: /channel_renderer"\);/,
-                    replace: "$&const vc_SidebarChat=$self.renderSidebar();"
+                    match: /if\(null!=.{0,50}ROLE_SUBSCRIPTIONS/,
+                    replace: "const vc_SidebarChat=$self.renderSidebar();$&"
                 },
                 {
                     match: /return(\(0,\i\.jsxs?\)\(\i\.\i,{}\))}/,
                     replace: "return [$1, vc_SidebarChat]}"
                 },
                 {
-                    match: /(case \i\.\i.+?return)(.+?);(?=.+?params\.messageId)(?<=channel_renderer".+?)/g,
+                    match: /(case \i\.\i.+?return)(.+?);(?=.+?params\.messageId)(?<=guild_products".+?)/g,
                     replace: "$1[$2, vc_SidebarChat];",
                     predicate: () => settings.store.patchCommunity
                 }
