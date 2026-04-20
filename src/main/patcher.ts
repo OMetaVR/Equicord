@@ -18,6 +18,7 @@
 
 import { onceDefined } from "@shared/onceDefined";
 import electron, { app, BrowserWindowConstructorOptions, Menu } from "electron";
+import Module from "module";
 import { dirname, join } from "path";
 
 import { RendererSettings } from "./settings";
@@ -26,11 +27,90 @@ import { IS_VANILLA } from "./utils/constants";
 
 console.log("[Equicord] Starting up...");
 
+type DesktopTTIMethod = "trackDetailedTTI" | "trackMainWindowDocumentLoad" | "trackMainWindowShown";
+type DesktopTTI = Partial<Record<DesktopTTIMethod, (...args: unknown[]) => void>>;
+type DiscordAnalytics = {
+    getDesktopTTI?: () => DesktopTTI | null;
+};
+type DiscordAnalyticsModule = DiscordAnalytics;
+type DiscordBootstrapModules = {
+    analytics?: DiscordAnalytics | null;
+};
+type DiscordDesktopCore = {
+    startup?: (bootstrapModules: DiscordBootstrapModules) => unknown;
+};
+
+const desktopTTIMethods: DesktopTTIMethod[] = [
+    "trackDetailedTTI",
+    "trackMainWindowDocumentLoad",
+    "trackMainWindowShown"
+];
+
+const patchDesktopCore = (coreModule: DiscordDesktopCore) => {
+    if (typeof coreModule.startup !== "function" || Reflect.get(coreModule.startup, "__equicordPatched")) {
+        return coreModule;
+    }
+
+    const originalStartup = coreModule.startup;
+    coreModule.startup = function (bootstrapModules) {
+        const desktopTTI = bootstrapModules.analytics?.getDesktopTTI?.();
+        if (desktopTTI) {
+            for (const method of desktopTTIMethods) {
+                if (typeof desktopTTI[method] !== "function") {
+                    desktopTTI[method] = () => { };
+                }
+            }
+        }
+
+        return originalStartup.call(this, bootstrapModules);
+    };
+
+    Reflect.set(coreModule.startup, "__equicordPatched", true);
+    return coreModule;
+};
+
+const patchDiscordAnalytics = (analytics: DiscordAnalyticsModule) => {
+    if (typeof analytics.getDesktopTTI !== "function" || Reflect.get(analytics.getDesktopTTI, "__equicordPatched")) {
+        return analytics;
+    }
+
+    const originalGetDesktopTTI = analytics.getDesktopTTI;
+    analytics.getDesktopTTI = function () {
+        const desktopTTI = originalGetDesktopTTI.call(this);
+        if (desktopTTI) {
+            for (const method of desktopTTIMethods) {
+                if (typeof desktopTTI[method] !== "function") {
+                    desktopTTI[method] = () => { };
+                }
+            }
+        }
+
+        return desktopTTI;
+    };
+
+    Reflect.set(analytics.getDesktopTTI, "__equicordPatched", true);
+    return analytics;
+};
+
+const NodeModule = Module as typeof import("module") & {
+    _load: (request: string, parent: NodeJS.Module | null | undefined, isMain: boolean) => unknown;
+};
+
+const originalLoad = NodeModule._load;
+NodeModule._load = function (request, parent, isMain) {
+    const loadedModule = originalLoad.call(this, request, parent, isMain);
+    return request === "discord_desktop_core"
+        ? patchDesktopCore(loadedModule as DiscordDesktopCore)
+        : loadedModule;
+};
+
 // Our injector file at app/index.js
 const injectorPath = require.main!.filename;
 
 // The original app.asar
 const asarPath = join(dirname(injectorPath), "..", "_app.asar");
+
+patchDiscordAnalytics(require(join(asarPath, "common/analytics")) as DiscordAnalyticsModule);
 
 const discordPkg = require(join(asarPath, "package.json"));
 require.main!.filename = join(asarPath, discordPkg.main);
