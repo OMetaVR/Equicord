@@ -6,6 +6,7 @@
 
 import { showNotice } from "@api/Notices";
 import { isPluginEnabled, pluginRequiresRestart, startDependenciesRecursive, startPlugin, stopPlugin } from "@api/PluginManager";
+import { Settings } from "@api/Settings";
 import { CogWheel, InfoIcon } from "@components/Icons";
 import { AddonCard } from "@components/settings/AddonCard";
 import { classNameFactory } from "@utils/css";
@@ -13,7 +14,6 @@ import { getTheme, Theme } from "@utils/discord";
 import { Logger } from "@utils/Logger";
 import { OptionType, Plugin } from "@utils/types";
 import { React, showToast, Toasts } from "@webpack/common";
-import { Settings } from "Vencord";
 
 import { PluginMeta } from "~plugins";
 
