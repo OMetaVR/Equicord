@@ -997,7 +997,7 @@ export const EquicordDevs = Object.freeze({
         id: 984392761929256980n
     },
     creations: {
-        name: "Creation's",
+        name: "creations",
         id: 209830981060788225n
     },
     Leko: {
@@ -1291,6 +1291,10 @@ export const EquicordDevs = Object.freeze({
     pointy: {
         name: "pointy",
         id: 99914384989519872n
+    },
+    dka: {
+        name: "DKA",
+        id: 119386840624005121n
     },
 } satisfies Record<string, Dev>);
 

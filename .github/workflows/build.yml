@@ -97,7 +97,8 @@ jobs:
                   git clone https://$USERNAME:$GITHUB_TOKEN@github.com/$REPO.git plugins
                   cd plugins
 
-                  cp ../dist/release/*.json .
+                  cp ../dist/release/*plugins.json .
+                  cp ../dist/release/devs.json .
                   git add -A
 
                   if git diff --cached --quiet; then
