@@ -8,7 +8,7 @@ import { Paragraph } from "@components/index";
 import { openImageModal } from "@utils/discord";
 import { ModalContent, ModalHeader, ModalProps, ModalRoot } from "@utils/modal";
 import { React } from "@webpack/common";
-import { SpotifyStore, Track } from "equicordplugins/musicControls/spotify/SpotifyStore";
+import { SpotifyStore, Track } from "@equicordplugins/musicControls/spotify/SpotifyStore";
 
 import { SyncedLyric } from "../providers/types";
 import { cl, formatTime, NoteSvg, scrollClasses, useLyrics } from "./util";

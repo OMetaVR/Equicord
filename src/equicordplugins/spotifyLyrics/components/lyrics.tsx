@@ -5,9 +5,10 @@
  */
 
 import { Paragraph } from "@components/Paragraph";
+import { TooltipContainer } from "@components/TooltipContainer";
 import { openModal } from "@utils/modal";
-import { ContextMenuApi, React, TooltipContainer, useEffect, useState, useStateFromStores } from "@webpack/common";
-import { SpotifyStore } from "equicordplugins/musicControls/spotify/SpotifyStore";
+import { ContextMenuApi, React, useEffect, useState, useStateFromStores } from "@webpack/common";
+import { SpotifyStore } from "@equicordplugins/musicControls/spotify/SpotifyStore";
 
 import { SpotifyLrcStore } from "../providers/store";
 import settings from "../settings";

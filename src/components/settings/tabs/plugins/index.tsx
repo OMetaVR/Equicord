@@ -214,10 +214,10 @@ export default function PluginSettings() {
                 if (!isPluginEnabled(plugin.name)) return false;
                 break;
             case SearchStatus.EQUICORD:
-                if (!PluginMeta[plugin.name].folderName.startsWith("src/equicordplugins/")) return false;
+                if (!PluginMeta[plugin.name]?.folderName?.startsWith("src/equicordplugins/")) return false;
                 break;
             case SearchStatus.VENCORD:
-                if (!PluginMeta[plugin.name].folderName.startsWith("src/plugins/")) return false;
+                if (!PluginMeta[plugin.name]?.folderName?.startsWith("src/plugins/")) return false;
                 break;
             case SearchStatus.NEW:
                 if (!newPluginsSet?.has(plugin.name)) return false;
@@ -357,12 +357,12 @@ export default function PluginSettings() {
         const totalPlugins = Object.keys(Plugins).filter(p => !isApiPlugin(p));
         const enabledPlugins = Object.keys(Plugins).filter(p => isPluginEnabled(p) && !isApiPlugin(p));
 
-        const totalStockPlugins = totalPlugins.filter(p => !PluginMeta[p].userPlugin && !PluginMeta[p].wardenPlugin && !Plugins[p].hidden).length;
-        const totalUserPlugins = totalPlugins.filter(p => PluginMeta[p].userPlugin).length;
-        const totalWardenPlugins = totalPlugins.filter(p => PluginMeta[p].wardenPlugin).length;
-        const enabledStockPlugins = enabledPlugins.filter(p => !PluginMeta[p].userPlugin && !PluginMeta[p].wardenPlugin).length;
-        const enabledUserPlugins = enabledPlugins.filter(p => PluginMeta[p].userPlugin).length;
-        const enabledWardenPlugins = enabledPlugins.filter(p => PluginMeta[p].wardenPlugin).length;
+        const totalStockPlugins = totalPlugins.filter(p => !PluginMeta[p]?.userPlugin && !PluginMeta[p]?.wardenPlugin && !Plugins[p].hidden).length;
+        const totalUserPlugins = totalPlugins.filter(p => PluginMeta[p]?.userPlugin).length;
+        const totalWardenPlugins = totalPlugins.filter(p => PluginMeta[p]?.wardenPlugin).length;
+        const enabledStockPlugins = enabledPlugins.filter(p => !PluginMeta[p]?.userPlugin && !PluginMeta[p]?.wardenPlugin).length;
+        const enabledUserPlugins = enabledPlugins.filter(p => PluginMeta[p]?.userPlugin).length;
+        const enabledWardenPlugins = enabledPlugins.filter(p => PluginMeta[p]?.wardenPlugin).length;
         return { totalStockPlugins, totalUserPlugins, totalWardenPlugins, enabledStockPlugins, enabledUserPlugins, enabledWardenPlugins, enabledPlugins };
     }, [settings.plugins]);
     const pluginsToLoad = Math.min(36, plugins.length);

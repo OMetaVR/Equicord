@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import type { Track } from "equicordplugins/musicControls/spotify/SpotifyStore";
+import type { Track } from "@equicordplugins/musicControls/spotify/SpotifyStore";
 
 import type { SyncedLyric } from "../types";
 

@@ -246,7 +246,9 @@ export default definePlugin({
             buildLayout: () => equicordEntries
         };
 
-        const { settingsLocation } = settings.store;
+        const settingsLocation = typeof settings.store.settingsLocation === "string"
+            ? settings.store.settingsLocation
+            : "top";
 
         const places: Record<SettingsLocation, string> = {
             top: "user_section",

@@ -169,7 +169,8 @@ export default function PluginModal({ plugin, onRestartNeeded, onClose, transiti
     }
 
     const pluginMeta = PluginMeta[plugin.name];
-    const isEquicordPlugin = pluginMeta.folderName.startsWith("src/equicordplugins/") ?? false;
+    const folderName = pluginMeta?.folderName ?? "";
+    const isEquicordPlugin = folderName.startsWith("src/equicordplugins/");
 
     return (
         <ModalRoot transitionState={transitionState} size={ModalSize.MEDIUM}>
