@@ -9,13 +9,13 @@ import { HeaderBarButton } from "@api/HeaderBar";
 import { addMessagePreSendListener, removeMessagePreSendListener } from "@api/MessageEvents";
 import { isPluginEnabled } from "@api/PluginManager";
 import { definePluginSettings, migratePluginToSettings, Settings } from "@api/Settings";
-import { WarningIcon } from "@components/Icons";
+import { ShieldIcon, WarningIcon } from "@components/Icons";
 import customRPC from "@plugins/customRPC";
 import { Devs, EquicordDevs, GUILD_ID, SUPPORT_CHANNEL_ID, SUPPORT_CHANNEL_IDS, VC_SUPPORT_CHANNEL_IDS } from "@utils/constants";
 import { isAnyPluginDev } from "@utils/misc";
 import definePlugin, { OptionType } from "@utils/types";
 import { StandingState } from "@vencord/discord-types/enums";
-import { findByCodeLazy, findComponentByCodeLazy, findStoreLazy } from "@webpack";
+import { findByCodeLazy, findStoreLazy } from "@webpack";
 import { Alerts, ApplicationCommandIndexStore, NavigationRouter, React, SettingsRouter, UserStore, useStateFromStores } from "@webpack/common";
 import { ComponentType } from "react";
 
@@ -30,7 +30,6 @@ let clicked = false;
 
 const SafetyHubStore = findStoreLazy("SafetyHubStore");
 const fetchSafetyHub: () => Promise<void> = findByCodeLazy("SAFETY_HUB_FETCH_START");
-const ShieldIcon = findComponentByCodeLazy("0 0 1-1.29-.88c-.36-.33-.7-.73-.88-1.13-.33-.");
 
 const StandingConfig: Record<number, { label: string; hoverColor: string; Icon: ComponentType<any>; }> = {
     [StandingState.ALL_GOOD]: { label: "All good!", hoverColor: "var(--status-positive)", Icon: ShieldIcon },
@@ -173,6 +172,22 @@ export default definePlugin({
                 }
             ]
         },
+        // Fix a race condition?
+        {
+            find: ".completeOperation(",
+            replacement: {
+                match: /(?<=this\.nextId\(\);)(\i\(\i\)),(.{0,200}reject:\i\}\))/,
+                replace: "$2,$1"
+            }
+        },
+        // catch if it cant open
+        {
+            find: "discarding speculative database",
+            replacement: {
+                match: /await (\i)\((\i)\)(?=;.{0,15}this\.databases)/,
+                replace: "$&.catch(()=>null)"
+            }
+        },
         // When focused on voice channel or group chat voice call
         {
             find: ".STATUS_WARNING_BACKGROUND})})",
@@ -266,7 +281,7 @@ export default definePlugin({
         },
         // Removes Modal Animation
         {
-            find: "renderLurkerModeUpsellPopout,position:",
+            find: ".SWITCH_THUMB_BACKGROUND_SELECTED_DEFAULT)",
             predicate: () => settings.store.noModalAnimation,
             replacement: {
                 match: /200:300/g,
@@ -310,7 +325,7 @@ export default definePlugin({
                 }
             ],
             predicate: () => Settings.winNativeTitleBar,
-        }
+        },
     ],
     renderMessageAccessory(props) {
         return (

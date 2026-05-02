@@ -8,13 +8,17 @@ import { definePluginSettings } from "@api/Settings";
 import { Button } from "@components/Button";
 import { SettingsSection } from "@components/settings/tabs/plugins/components/Common";
 import { Switch } from "@components/Switch";
+import { classNameFactory } from "@utils/css";
 import { useForceUpdater } from "@utils/react";
 import { OptionType } from "@utils/types";
 import { React, Select, showToast, TextArea, TextInput, Toasts } from "@webpack/common";
 
 import { CORS_PROXY } from "./constants";
-import { ServiceType } from "./types";
+import { fallbackServiceOrder, serviceLabels, ServiceType } from "./types";
 import { parseShareXConfig } from "./utils/sharex";
+
+const defaultFallbackOrder = fallbackServiceOrder.join(",");
+const cl = classNameFactory("vc-file-upload-settings-");
 
 const serviceOptions = [
     { label: "Zipline", value: ServiceType.ZIPLINE, default: true },
@@ -29,6 +33,8 @@ const serviceOptions = [
     { label: "buzzheavier.com", value: ServiceType.BUZZHEAVIER },
     { label: "temp.sh", value: ServiceType.TEMPSH },
     { label: "filebin.net", value: ServiceType.FILEBIN },
+    { label: "PixelVault", value: ServiceType.PIXELVAULT },
+    { label: "PixelDrain", value: ServiceType.PIXELDRAIN },
     { label: "ShareX Custom Uploader", value: ServiceType.SHAREX }
 ];
 
@@ -172,21 +178,39 @@ export const settings = definePluginSettings({
         default: false,
         hidden: true
     },
-    interceptDiscordUpload: {
+    bypassDiscordUpload: {
         type: OptionType.BOOLEAN,
-        description: "Intercept Discord uploads and use FileUpload instead.",
-        default: false,
+        description: "Bypass Discord uploads and use FileUpload instead.",
+        default: true,
         hidden: true
     },
-    interceptDiscordUploadOnlyOverLimit: {
+    bypassDiscordUploadOnlyOverLimit: {
         type: OptionType.BOOLEAN,
-        description: "Only intercept uploads that exceed Discord file size limit.",
+        description: "Only use FileUpload if the file(s) exceed the file size limit.",
         default: true,
         hidden: true
     },
     gofileToken: {
         type: OptionType.STRING,
         description: "Optional GoFile API token",
+        default: "",
+        hidden: true
+    },
+    fallbackOrder: {
+        type: OptionType.STRING,
+        description: "Fallback uploader order",
+        default: defaultFallbackOrder,
+        hidden: true
+    },
+    pixelVaultKey: {
+        type: OptionType.STRING,
+        description: "PixelVault upload key",
+        default: "",
+        hidden: true
+    },
+    pixelDrainKey: {
+        type: OptionType.STRING,
+        description: "Optional PixelDrain API key",
         default: "",
         hidden: true
     },
@@ -239,6 +263,11 @@ export const settings = definePluginSettings({
         default: true,
         hidden: true
     },
+    autoUploadPastedFiles: {
+        type: OptionType.BOOLEAN,
+        description: "Automatically upload files from clipboard to image host when pasting in chat input.",
+        default: false
+    },
     settingsComponent: {
         type: OptionType.COMPONENT,
         description: "Settings",
@@ -266,6 +295,72 @@ function SettingTextInput(props: {
     );
 }
 
+function FallbackOrderSettings() {
+    const update = useForceUpdater();
+    const { store } = settings;
+    const [dragIndex, setDragIndex] = React.useState<number | null>(null);
+    const [order, setOrder] = React.useState<ServiceType[]>(() => {
+        const configured = (store.fallbackOrder || defaultFallbackOrder)
+            .split(/[\n,]/)
+            .map(entry => entry.trim())
+            .filter((entry): entry is ServiceType => Object.values(ServiceType).includes(entry as ServiceType));
+
+        return configured.length === fallbackServiceOrder.length && new Set(configured).size === fallbackServiceOrder.length
+            ? configured
+            : fallbackServiceOrder;
+    });
+
+    const commitOrder = (nextOrder: ServiceType[]) => {
+        setOrder(nextOrder);
+        store.fallbackOrder = nextOrder.join(",");
+        update();
+    };
+
+    return (
+        <SettingsSection name="Fallback Order" description="Drag hosts to reorder fallback attempts. The selected host is tried first, then this order is used.">
+            <div className={cl("fallback-order-list")}>
+                {order.map((service, index) => (
+                    <div
+                        key={service}
+                        className={cl("fallback-order-item")}
+                        draggable
+                        onDragStart={event => {
+                            setDragIndex(index);
+                            event.dataTransfer.effectAllowed = "move";
+                            event.dataTransfer.setData("text/plain", String(index));
+                        }}
+                        onDragOver={event => event.preventDefault()}
+                        onDrop={event => {
+                            event.preventDefault();
+                            const sourceIndex = dragIndex ?? Number(event.dataTransfer.getData("text/plain"));
+                            if (!Number.isInteger(sourceIndex) || sourceIndex === index || sourceIndex < 0 || sourceIndex >= order.length) {
+                                setDragIndex(null);
+                                return;
+                            }
+
+                            const nextOrder = [...order];
+                            const [moved] = nextOrder.splice(sourceIndex, 1);
+                            nextOrder.splice(index, 0, moved);
+                            setDragIndex(null);
+                            commitOrder(nextOrder);
+                        }}
+                        onDragEnd={() => setDragIndex(null)}
+                        data-dragging={dragIndex === index}
+                    >
+                        <span className={cl("fallback-order-label")}>{serviceLabels[service]}</span>
+                        <span className={cl("fallback-order-handle")}>Drag</span>
+                    </div>
+                ))}
+            </div>
+            <div className={cl("fallback-order-actions")}>
+                <Button size="small" onClick={() => commitOrder(fallbackServiceOrder)}>
+                    Reset to default
+                </Button>
+            </div>
+        </SettingsSection>
+    );
+}
+
 export function SettingsComponent() {
     const update = useForceUpdater();
     const { store } = settings;
@@ -277,6 +372,8 @@ export function SettingsComponent() {
     const isCatbox = store.serviceType === ServiceType.CATBOX;
     const isLitterbox = store.serviceType === ServiceType.LITTERBOX;
     const isGofile = store.serviceType === ServiceType.GOFILE;
+    const isPixelVault = store.serviceType === ServiceType.PIXELVAULT;
+    const isPixelDrain = store.serviceType === ServiceType.PIXELDRAIN;
     const isShareX = store.serviceType === ServiceType.SHAREX;
 
     const validateShareXConfig = () => {
@@ -477,6 +574,26 @@ export function SettingsComponent() {
                 />
             )}
 
+            {isPixelVault && (
+                <SettingTextInput
+                    name="PixelVault Upload Key"
+                    description="Your PixelVault authorization key"
+                    value={store.pixelVaultKey}
+                    onChange={v => store.pixelVaultKey = v}
+                    placeholder="Your PixelVault upload key"
+                />
+            )}
+
+            {isPixelDrain && (
+                <SettingTextInput
+                    name="PixelDrain API Key"
+                    description="Optional PixelDrain API key for authenticated uploads. Leave empty for anonymous uploads."
+                    value={store.pixelDrainKey}
+                    onChange={v => store.pixelDrainKey = v}
+                    placeholder="Your PixelDrain API key"
+                />
+            )}
+
             {isShareX && (
                 <>
                     <SettingsSection
@@ -592,17 +709,24 @@ export function SettingsComponent() {
                 />
             </SettingsSection>
 
-            <SettingsSection tag="label" name="Intercept Discord Upload Button" description="Use FileUpload when uploading through Discord's file picker" inlineSetting>
+            <SettingsSection tag="label" name="Bypass Discord Upload Button" description="Use FileUpload when uploading through Discord's file picker" inlineSetting>
                 <Switch
-                    checked={Boolean((store as { interceptDiscordUpload?: boolean; }).interceptDiscordUpload)}
-                    onChange={v => (store as { interceptDiscordUpload?: boolean; }).interceptDiscordUpload = v}
+                    checked={Boolean((store as { bypassDiscordUpload?: boolean; }).bypassDiscordUpload)}
+                    onChange={v => (store as { bypassDiscordUpload?: boolean; }).bypassDiscordUpload = v}
                 />
             </SettingsSection>
 
-            <SettingsSection tag="label" name="Only Intercept Over Discord File Size Limit" description="Use FileUpload only for files larger than your current Discord upload limit" inlineSetting>
+            <SettingsSection tag="label" name="Auto Upload Pasted Files" description="Automatically upload files from clipboard to image host when pasting in chat input" inlineSetting>
                 <Switch
-                    checked={store.interceptDiscordUploadOnlyOverLimit}
-                    onChange={v => store.interceptDiscordUploadOnlyOverLimit = v}
+                    checked={store.autoUploadPastedFiles}
+                    onChange={v => store.autoUploadPastedFiles = v}
+                />
+            </SettingsSection>
+
+            <SettingsSection tag="label" name="Respect Discord File Size Limit" description="Use FileUpload only for files larger than your current Discord upload limit" inlineSetting>
+                <Switch
+                    checked={store.bypassDiscordUploadOnlyOverLimit}
+                    onChange={v => store.bypassDiscordUploadOnlyOverLimit = v}
                 />
             </SettingsSection>
 
@@ -624,6 +748,8 @@ export function SettingsComponent() {
                     placeholder="Select timeout"
                 />
             </SettingsSection>
+
+            <FallbackOrderSettings />
         </>
     );
 }
