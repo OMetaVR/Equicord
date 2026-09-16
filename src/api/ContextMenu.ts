@@ -122,7 +122,7 @@ export function findGroupChildrenByChildId(id: string | string[], children: Arra
 }
 
 interface ContextMenuProps {
-    contextMenuAPIArguments?: Array<any>;
+    contextMenuAPIArguments?: ArrayLike<any> | Iterable<any>;
     navId: string;
     children: Array<ReactElement<any> | null>;
     "aria-label": string;
@@ -138,7 +138,9 @@ export function _usePatchContextMenu(props: ContextMenuProps) {
         children: cloneMenuChildren(props.children),
     };
 
-    props.contextMenuAPIArguments ??= [];
+    const contextMenuAPIArguments = Array.from(props.contextMenuAPIArguments ?? []);
+    if (!contextMenuAPIArguments.length) contextMenuAPIArguments.push(props);
+    props.contextMenuAPIArguments = contextMenuAPIArguments;
     const contextMenuPatches = navPatches.get(props.navId);
 
     if (!Array.isArray(props.children)) props.children = [props.children];
@@ -146,7 +148,7 @@ export function _usePatchContextMenu(props: ContextMenuProps) {
     if (contextMenuPatches) {
         for (const patch of contextMenuPatches) {
             try {
-                patch(props.children, ...props.contextMenuAPIArguments);
+                patch(props.children, ...contextMenuAPIArguments);
             } catch (err) {
                 ContextMenuLogger.error(`Patch for ${props.navId} errored,`, err);
             }
@@ -155,7 +157,7 @@ export function _usePatchContextMenu(props: ContextMenuProps) {
 
     for (const patch of globalPatches) {
         try {
-            patch(props.navId, props.children, ...props.contextMenuAPIArguments);
+            patch(props.navId, props.children, ...contextMenuAPIArguments);
         } catch (err) {
             ContextMenuLogger.error("Global patch errored,", err);
         }

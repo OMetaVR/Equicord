@@ -33,7 +33,7 @@ interface PluginCardProps extends React.HTMLProps<HTMLDivElement> {
 export function PluginCard({ plugin, disabled, onRestartNeeded, onMouseEnter, onMouseLeave, isNew }: PluginCardProps) {
     const settings = Settings.plugins[plugin.name];
     const pluginMeta = PluginMeta[plugin.name];
-    const folderName = pluginMeta?.folderName ?? "";
+    const folderName = typeof pluginMeta?.folderName === "string" ? pluginMeta.folderName : "";
     const isEquicordPlugin = folderName.startsWith("src/equicordplugins/");
     const isVencordPlugin = folderName.startsWith("src/plugins/");
     const isUserPlugin = pluginMeta?.userPlugin ?? false;

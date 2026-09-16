@@ -223,9 +223,9 @@ function generatePluginList() {
     const enabledPlugins = Object.keys(plugins)
         .filter(p => isPluginEnabled(p) && !isApiPlugin(p));
 
-    const enabledStockPlugins = enabledPlugins.filter(p => !PluginMeta[p].userPlugin && !PluginMeta[p].wardenPlugin).sort();
-    const enabledUserPlugins = enabledPlugins.filter(p => PluginMeta[p].userPlugin).sort();
-    const enabledWardenPlugins = enabledPlugins.filter(p => PluginMeta[p].wardenPlugin).sort();
+    const enabledStockPlugins = enabledPlugins.filter(p => !PluginMeta[p]?.userPlugin && !PluginMeta[p]?.wardenPlugin).sort();
+    const enabledUserPlugins = enabledPlugins.filter(p => PluginMeta[p]?.userPlugin).sort();
+    const enabledWardenPlugins = enabledPlugins.filter(p => PluginMeta[p]?.wardenPlugin).sort();
 
     const user = UserStore.getCurrentUser();
 

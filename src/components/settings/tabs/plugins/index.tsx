@@ -205,6 +205,9 @@ export default function PluginSettings() {
 
     const pluginFilter = useCallback((plugin: typeof Plugins[keyof typeof Plugins], newPluginsSet: Set<string> | null) => {
         const { status, tags } = searchValue;
+        const folderName = typeof PluginMeta[plugin.name]?.folderName === "string"
+            ? PluginMeta[plugin.name].folderName
+            : null;
 
         switch (status) {
             case SearchStatus.DISABLED:
@@ -214,10 +217,10 @@ export default function PluginSettings() {
                 if (!isPluginEnabled(plugin.name)) return false;
                 break;
             case SearchStatus.EQUICORD:
-                if (!PluginMeta[plugin.name]?.folderName?.startsWith("src/equicordplugins/")) return false;
+                if (!folderName?.startsWith("src/equicordplugins/")) return false;
                 break;
             case SearchStatus.VENCORD:
-                if (!PluginMeta[plugin.name]?.folderName?.startsWith("src/plugins/")) return false;
+                if (!folderName?.startsWith("src/plugins/")) return false;
                 break;
             case SearchStatus.NEW:
                 if (!newPluginsSet?.has(plugin.name)) return false;

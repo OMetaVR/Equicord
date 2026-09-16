@@ -91,12 +91,13 @@ export function _getBadges(args: BadgeUserArgs) {
         }
 
         const b = badge.getBadges
-            ? badge.getBadges(args).map(badge => ({
+            ? badge.getBadges(args).map((badge, idx) => ({
                 ...args,
                 ...badge,
+                id: badge.id ?? `${args.userId}_badge_${idx}`,
                 component: badge.component && ErrorBoundary.wrap(badge.component, { noop: true })
             }))
-            : [{ ...args, ...badge }];
+            : [{ ...args, ...badge, id: badge.id ?? `${args.userId}_badge` }];
 
         if (badge.position === BadgePosition.START) {
             badges.unshift(...b);
@@ -112,36 +113,40 @@ export function _getBadges(args: BadgeUserArgs) {
 
     if (GlobalBadges) {
         badges.unshift(
-            ...GlobalBadges.map(badge => ({
+            ...GlobalBadges.map((badge, idx) => ({
                 ...args,
                 ...badge,
+                id: badge.id ?? `global_badge_${args.userId}_${idx}`,
             }))
         );
     }
 
     if (donorBadges) {
         badges.unshift(
-            ...donorBadges.map(badge => ({
+            ...donorBadges.map((badge, idx) => ({
                 ...args,
                 ...badge,
+                id: badge.id ?? `donor_badge_${args.userId}_${idx}`,
             }))
         );
     }
 
     if (equicordDonorBadges) {
         badges.unshift(
-            ...equicordDonorBadges.map(badge => ({
+            ...equicordDonorBadges.map((badge, idx) => ({
                 ...args,
                 ...badge,
+                id: badge.id ?? `equicord_donor_badge_${args.userId}_${idx}`,
             }))
         );
     }
 
     if (customBadges) {
         badges.unshift(
-            ...customBadges.map(badge => ({
+            ...customBadges.map((badge, idx) => ({
                 ...args,
                 ...badge,
+                id: badge.id ?? `custom_badge_${args.userId}_${idx}`,
             }))
         );
     }

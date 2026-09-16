@@ -22,16 +22,7 @@ export default definePlugin({
     description: "Makes desktop notifications more informative",
     tags: ["Appearance", "Notifications"],
     authors: [Devs.Kyuuhachi],
-
-    patches: [
-        {
-            find: '"SystemMessageUtils.stringify(...) could not convert"',
-            replacement: {
-                match: /{icon:.{0,50}emoji:\i}/,
-                replace: "($self.makeTitle($&,...arguments))",
-            }
-        },
-    ],
+    patches: [],
 
     makeTitle(result, channel, message, user) {
         const username = getName(channel.guild_id, channel.id, user);

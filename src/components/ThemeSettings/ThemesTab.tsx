@@ -510,7 +510,7 @@ function ThemesTab() {
     }
 
     function changeThemeLibraryURLs() {
-        settings.themeLinks = settings.themeLinks.map(link => {
+        settings.themeLinks = settings.themeLinks.filter((link): link is string => typeof link === "string").map(link => {
             if (link.startsWith("https://discord-themes.com/api")) {
                 return link.replace("https://discord-themes.com/api", "https://themes.equicord.org/api");
             }

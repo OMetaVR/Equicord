@@ -26,14 +26,6 @@ export default definePlugin({
     tags: ["Friends"],
     authors: [Devs.Elvyra, Devs.Antti],
     patches: [
-        // DM User Sidebar
-        {
-            find: "#{intl::PREMIUM_GIFTING_BUTTON}),action:",
-            replacement: {
-                match: /#{intl::USER_PROFILE_MEMBER_SINCE}\),.{0,100}userId:(\i\.id)}\)}\)/,
-                replace: "$&,$self.FriendsSinceComponent({userId:$1,isSidebar:true})"
-            }
-        },
         // User Profile Modal
         {
             find: ",applicationRoleConnection:",

@@ -242,13 +242,5 @@ export default definePlugin({
     authors: [Devs.nin0dev],
     settings,
     renderVoiceSettings() { return <VoiceSettings />; },
-    patches: [
-        {
-            find: "this.renderChannelButtons()",
-            replacement: {
-                match: /this.renderChannelButtons\(\)/,
-                replace: "this.renderChannelButtons(), $self.renderVoiceSettings()"
-            }
-        }
-    ]
+    patches: []
 });

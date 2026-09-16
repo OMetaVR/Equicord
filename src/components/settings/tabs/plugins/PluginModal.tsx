@@ -169,8 +169,9 @@ export default function PluginModal({ plugin, onRestartNeeded, onClose, transiti
     }
 
     const pluginMeta = PluginMeta[plugin.name];
-    const folderName = pluginMeta?.folderName ?? "";
-    const isEquicordPlugin = folderName.startsWith("src/equicordplugins/");
+    const folderName = typeof pluginMeta?.folderName === "string" ? pluginMeta.folderName : null;
+    const isEquicordPlugin = folderName?.startsWith("src/equicordplugins/") ?? false;
+    const sourceCodeUrl = folderName && `https://github.com/${gitRemote}/tree/main/${folderName}`;
 
     return (
         <ModalRoot transitionState={transitionState} size={ModalSize.MEDIUM}>
@@ -245,16 +246,18 @@ export default function PluginModal({ plugin, onRestartNeeded, onClose, transiti
                                 )}
                             </Tooltip>
                         ) : <div />}
-                        {!pluginMeta.userPlugin && (
+                        {!pluginMeta?.userPlugin && (
                             <div className={cl("links")}>
                                 <WebsiteButton
                                     text="Website"
                                     href={isEquicordPlugin ? `https://equicord.org/plugins/${plugin.name}` : `https://vencord.dev/plugins/${plugin.name}`}
                                 />
-                                <GithubButton
-                                    text="Source Code"
-                                    href={`https://github.com/${gitRemote}/tree/main/${pluginMeta.folderName}`}
-                                />
+                                {sourceCodeUrl && (
+                                    <GithubButton
+                                        text="Source Code"
+                                        href={sourceCodeUrl}
+                                    />
+                                )}
                             </div>
                         )}
                     </Flex>

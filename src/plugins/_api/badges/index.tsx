@@ -84,6 +84,7 @@ const UserPluginContributorBadge: ProfileBadge = {
 };
 
 const WardenPluginContributorBadge: ProfileBadge = {
+    id: "warden_plugin_contributor_badge",
     description: "Warden Plugin Contributor",
     iconSrc: WARDEN_CONTRIBUTOR_BADGE,
     position: BadgePosition.START,
@@ -291,7 +292,8 @@ export default definePlugin({
     },
 
     getCustomBadges(userId: string) {
-        return CustomBadges[userId]?.map(badge => ({
+        return CustomBadges[userId]?.map((badge, idx) => ({
+            id: `custom_badge_${idx}`,
             iconSrc: badge.badge,
             description: badge.tooltip,
             position: BadgePosition.START,

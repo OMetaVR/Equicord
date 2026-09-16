@@ -14,12 +14,17 @@ import { Paragraph } from "@components/Paragraph";
 import { Devs, IS_MAC } from "@utils/constants";
 import { Margins } from "@utils/margins";
 import definePlugin, { OptionType } from "@utils/types";
-import { findByPropsLazy } from "@webpack";
-import { ExperimentStore, React } from "@webpack/common";
+import { findByPropsLazy, findLazy } from "@webpack";
+import { React } from "@webpack/common";
 
 import hideBugReport from "./hideBugReport.css?managed";
 
 const KbdStyles = findByPropsLazy("key", "combo");
+const BugReporterExperiment = findLazy(m =>
+    m?.definition?.id === "2024-09_bug_reporter"
+    || m?.definition?.name === "2026-01-bug-reporter"
+);
+
 const modKey = IS_MAC ? "cmd" : "ctrl";
 const altKey = IS_MAC ? "opt" : "alt";
 
@@ -66,7 +71,7 @@ export default definePlugin({
             find: 'placeholder:"Search experiments"',
             replacement: [
                 {
-                    match: /(?<=children:\[)(?=null!=.{0,150}"Installation ID:)/,
+                    match: /(?<=children:\[)(?=\(0,\i\.jsx?\)\(\i\.\i,{placeholder:"Search experiments")/,
                     replace: "$self.WarningCard(),"
                 },
                 // for some reason the installation id and copy buttons are on
@@ -123,7 +128,7 @@ export default definePlugin({
         {
             find: "{PlaygroundEmbed:()=>",
             replacement: {
-                match: /"Revenue".{0,250}getCurrentUser\(\);return/,
+                match: /PotionIcon.{0,250}getCurrentUser\(\);return/,
                 replace: "$& true||"
             }
         },
@@ -144,8 +149,9 @@ export default definePlugin({
                     replace: "{return($1)||($self.matchExperiment(arguments[0].url,$2.label))}"
                 }
             ]
-        },
+        }
     ],
+
     matchExperiment(url: string, label: string): boolean {
         const items = url.split("/");
         const labelCleaned = label.replace(/[^a-zA-Z0-9]+/g, "").toLowerCase();
@@ -153,7 +159,14 @@ export default definePlugin({
         return !!labelCleaned && urlEndCleaned !== undefined && labelCleaned === urlEndCleaned;
     },
 
-    start: () => ExperimentStore.getUserExperimentBucket("2026-01-bug-reporter") > 0 && enableStyle(hideBugReport),
+    start() {
+        const hasBugReporterAccess =
+            BugReporterExperiment?.getCurrentConfig?.()?.hasBugReporterAccess
+            ?? BugReporterExperiment?.getConfig?.()?.hasBugReporterAccess
+            ?? false;
+
+        if (!hasBugReporterAccess) enableStyle(hideBugReport);
+    },
     stop: () => disableStyle(hideBugReport),
 
     settingsAboutComponent: () => {
