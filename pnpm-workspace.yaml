@@ -11,6 +11,7 @@ allowedDeprecatedVersions:
     urix: "*"
     q: "*"
 strictPeerDependencies: false
+enableGlobalVirtualStore: false
 allowBuilds:
     esbuild: true
 pmOnFail: warn
