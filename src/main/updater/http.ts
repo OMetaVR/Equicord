@@ -21,7 +21,7 @@ import { IpcEvents } from "@shared/IpcEvents";
 import { VENCORD_USER_AGENT } from "@shared/vencordUserAgent";
 import { ipcMain } from "electron";
 import { existsSync, statSync } from "fs";
-import { writeFileSync } from "original-fs";
+import { renameSync, writeFileSync } from "original-fs";
 import { join } from "path";
 
 import gitHash from "~git-hash";
@@ -57,16 +57,14 @@ async function calculateGitChanges() {
 
     return data.commits.map((c: any) => ({
         hash: c.sha,
-        author: c.author?.login ?? c.commit?.author?.name ?? "Ghost",
+        author: c.author?.login ?? c.commit?.author?.name ?? "Unknown Author",
         message: c.commit.message.split("\n")[0]
     }));
 }
 
 async function fetchUpdates() {
-    const [releaseData, tagData] = await Promise.all([
-        githubGet("/releases/latest"),
-        githubGet("/git/refs/tags/latest")
-    ]);
+    const releaseData = await githubGet("/releases/latest");
+    const tagData = await githubGet(`/git/refs/tags/${releaseData.tag_name}`);
 
     const releaseHash = tagData.object.sha;
     if (releaseHash === gitHash)
@@ -84,7 +82,9 @@ async function applyUpdates() {
 
     const asarPath = getAsarPath();
     const data = await fetchBuffer(PendingUpdate);
-    writeFileSync(asarPath, data, { flush: true });
+    const temporaryPath = `${asarPath}.tmp`;
+    writeFileSync(temporaryPath, data, { flush: true });
+    renameSync(temporaryPath, asarPath);
 
     PendingUpdate = null;
     return true;

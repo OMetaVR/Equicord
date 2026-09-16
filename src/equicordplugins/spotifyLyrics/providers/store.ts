@@ -5,9 +5,9 @@
  */
 
 import { showNotification } from "@api/Notifications";
+import { SpotifyStore, type Track } from "@equicordplugins/musicControls/spotify/SpotifyStore";
 import { proxyLazyWebpack } from "@webpack";
 import { Flux, FluxDispatcher } from "@webpack/common";
-import { SpotifyStore, type Track } from "@equicordplugins/musicControls/spotify/SpotifyStore";
 
 import { getLyrics, identifyTrack, lyricFetchers, providers, updateLyrics } from "../api";
 import settings from "../settings";
@@ -152,4 +152,3 @@ export const SpotifyLrcStore = proxyLazyWebpack(() => {
 
     return store;
 });
-

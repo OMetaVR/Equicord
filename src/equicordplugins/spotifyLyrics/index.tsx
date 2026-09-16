@@ -8,14 +8,13 @@ import "./styles.css";
 
 import { Settings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
+import { SpotifyPlayer as Player } from "@equicordplugins/musicControls/spotify/PlayerComponent";
 import { Devs } from "@utils/constants";
 import definePlugin from "@utils/types";
-import { SpotifyPlayer as Player } from "@equicordplugins/musicControls/spotify/PlayerComponent";
 
 import { migrateOldLyrics } from "./api";
 import { Lyrics } from "./components/lyrics";
 import settings from "./settings";
-
 
 export default definePlugin({
     name: "SpotifyLyrics",

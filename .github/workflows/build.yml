@@ -1,12 +1,21 @@
 name: Release
 on:
+    workflow_dispatch:
+    workflow_call:
+        inputs:
+            ref:
+                type: string
+                required: true
     push:
         branches:
             - main
 
 env:
     FORCE_COLOR: true
-    DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+
+concurrency:
+    group: fork-release
+    cancel-in-progress: false
 
 permissions:
     contents: write
@@ -17,18 +26,23 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
-            - uses: actions/checkout@v4
+            - uses: actions/checkout@v7
+              with:
+                  ref: ${{ inputs.ref || github.sha }}
 
-            - uses: pnpm/action-setup@v3
+            - uses: pnpm/action-setup@v6
 
             - name: Use Node.js 24
-              uses: actions/setup-node@v4
+              uses: actions/setup-node@v6
               with:
                   node-version: 24
                   cache: "pnpm"
 
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
+
+            - name: Check types
+              run: pnpm testTsc
 
             - name: Build web
               run: pnpm buildWebStandalone
@@ -62,53 +76,25 @@ jobs:
                   rm -f release/package.json
                   rm -f release/*.map
 
-            - name: Update latest tag
-              run: |
-                  git tag -f latest
-                  git push -f origin latest
-
-            - name: Upload to Release
-              uses: nick-fields/retry@v3
-              with:
-                  timeout_minutes: 10
-                  max_attempts: 3
-                  retry_wait_seconds: 10
-                  retry_on: error
-                  command: |
-                      gh release edit latest --title "Latest ${{ github.sha }}" --latest
-                      gh release upload latest dist/release/* --clobber
+            - name: Publish tested release
               env:
-                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-            - name: Notify success
-              if: success() && env.DISCORD_WEBHOOK != ''
+                  GH_TOKEN: ${{ github.token }}
               run: |
-                  curl -H "Content-Type: application/json" -d '{"content":"✅ Build successful! Release updated: https://github.com/${{ github.repository }}/releases/tag/latest"}' $DISCORD_WEBHOOK
-
-            - name: Upload Plugin JSONs to Equibored repo
-              if: success() && secrets.ETOKEN != ''
-              env:
-                  GITHUB_TOKEN: ${{ secrets.ETOKEN }}
-                  REPO: Equicord/Equibored
-                  USERNAME: GitHub-Actions
-              run: |
-                  git config --global user.name "GitHub-Actions"
-                  git config --global user.email actions@github.com
-                  git clone https://$USERNAME:$GITHUB_TOKEN@github.com/$REPO.git plugins
-                  cd plugins
-
-                  cp ../dist/release/*plugins.json .
-                  cp ../dist/release/devs.json .
-                  git add -A
-
-                  if git diff --cached --quiet; then
+                  set -euo pipefail
+                  commit=$(git rev-parse HEAD)
+                  tag="build-$commit"
+                  current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+                  if [ "$current" != "$commit" ]; then
+                    echo "A newer commit is available; skipping this release."
                     exit 0
                   fi
-
-                  git commit -m "Plugins for https://github.com/$GITHUB_REPOSITORY/commit/$GITHUB_SHA"
-                  git push --force https://$USERNAME:$GITHUB_TOKEN@github.com/$REPO.git
-
-            - name: Notify failure
-              if: failure() && env.DISCORD_WEBHOOK != ''
-              run: |
-                  curl -H "Content-Type: application/json" -d '{"content":"<@297075664530440192> ❌ Build failed! Check: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"}' $DISCORD_WEBHOOK
+                  if gh release view "$tag" >/dev/null 2>&1; then
+                    if [ "$(gh release view "$tag" --json isDraft --jq .isDraft)" = false ]; then
+                      echo "Release already exists: $tag"
+                      exit 0
+                    fi
+                    gh release upload "$tag" dist/release/* --clobber
+                  else
+                    gh release create "$tag" dist/release/* --target "$commit" --title "Latest $commit" --notes "Validated desktop and web builds from $commit." --draft
+                  fi
+                  gh release edit "$tag" --draft=false --latest

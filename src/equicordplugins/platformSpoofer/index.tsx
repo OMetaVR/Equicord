@@ -73,13 +73,6 @@ export default definePlugin({
                     replace: "{...$1,...$self.getPlatform(true)}"
                 },
             ]
-        },
-        {
-            find: ".ORBS,label:",
-            replacement: {
-                match: /\{enabled:(\i).{0,25}"collectibles_shop_header_bar"\}\)/,
-                replace: "$1=true"
-            }
         }
     ],
     getPlatform(bypass, userId?: any) {

@@ -5,8 +5,8 @@
  */
 
 import { Button, Divider, Flex, Paragraph } from "@components/index";
-import { ModalContent, ModalHeader, ModalProps, ModalRoot, openModal } from "@utils/modal";
-import { FluxDispatcher, TextInput, useEffect, useState } from "@webpack/common";
+import { RenderModalProps } from "@vencord/discord-types";
+import { FluxDispatcher, Modal, openModal, TextInput, useEffect, useState } from "@webpack/common";
 
 import { lrcFormatToSyncedLyrics, type LRCLIBTrack } from "../providers/lrclibAPI";
 import { Provider } from "../providers/types";
@@ -17,7 +17,7 @@ const clSearchResult = cl("search-result");
 const clSearchResultTitle = cl("search-result-title");
 const clSearchResultArtist = cl("search-result-artist");
 
-export function SearchModal({ props, searchFor = "" }: { props: ModalProps, searchFor?: string | undefined; }) {
+export function SearchModal({ props, searchFor = "" }: { props: RenderModalProps, searchFor?: string | undefined; }) {
     const [query, setQuery] = useState(searchFor);
     const [results, setResults] = useState<LRCLIBTrack[]>([]);
     const [error, setError] = useState<string | null>(null);
@@ -52,7 +52,6 @@ export function SearchModal({ props, searchFor = "" }: { props: ModalProps, sear
         return () => clearTimeout(handler);
     }, [query]);
 
-
     const handleSelect = async (track: LRCLIBTrack) => {
         FluxDispatcher.dispatch({
             // @ts-ignore
@@ -63,11 +62,8 @@ export function SearchModal({ props, searchFor = "" }: { props: ModalProps, sear
     };
 
     return (
-        <ModalRoot {...props}>
-            <ModalHeader>
-                <Paragraph>Search Lyrics</Paragraph>
-            </ModalHeader>
-            <ModalContent>
+        <Modal {...props} title="Search Lyrics">
+            <div>
                 <div className={cl("search-modal")}>
                     <TextInput
                         value={query}
@@ -116,7 +112,7 @@ export function SearchModal({ props, searchFor = "" }: { props: ModalProps, sear
                         )}
                     </div>
                 </div>
-            </ModalContent>
-        </ModalRoot >
+            </div>
+        </Modal>
     );
 }

@@ -6,10 +6,9 @@
 
 import { definePluginSettings } from "@api/Settings";
 import { Button, Paragraph } from "@components/index";
-import { openModal } from "@utils/modal";
 import { useAwaiter, useIntersection } from "@utils/react";
 import { OptionType } from "@utils/types";
-import { showToast, Toasts, useMemo } from "@webpack/common";
+import { openModal, showToast, Toasts, useMemo } from "@webpack/common";
 
 import { clearLyricsCache, getLyricsCount, removeTranslations } from "./api";
 import { Lyrics } from "./components/lyrics";

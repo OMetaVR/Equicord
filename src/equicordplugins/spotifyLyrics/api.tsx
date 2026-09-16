@@ -5,8 +5,8 @@
  */
 
 import { DataStore } from "@api/index";
-import { hash as h64 } from "@intrnl/xxhash64";
 import { Track } from "@equicordplugins/musicControls/spotify/SpotifyStore";
+import { hash as h64 } from "@intrnl/xxhash64";
 
 import { getLyricsLrclib } from "./providers/lrclibAPI";
 import { getLyricsSpotify } from "./providers/SpotifyAPI";

@@ -8,11 +8,12 @@ import { Flex } from "@components/Flex";
 import { Heading } from "@components/Heading";
 import { Paragraph } from "@components/Paragraph";
 import { BasicChannelTabsProps, ChannelTabsProps, clearStaleNavigationContext, closeTab, createTab, handleChannelSwitch, isNavigationFromSource, isTabSelected, moveToTab, openedTabs, openStartupTabs, saveTabs, settings, setUpdaterFunction, useGhostTabs } from "@equicordplugins/channelTabs/util";
+import { IS_MAC } from "@utils/constants";
 import { classNameFactory } from "@utils/css";
 import { classes } from "@utils/misc";
 import { useForceUpdater } from "@utils/react";
-import { findComponentByCodeLazy, findStoreLazy } from "@webpack";
-import { Button, ContextMenuApi, FluxDispatcher, useCallback, useEffect, useRef, UserStore, useState, useStateFromStores } from "@webpack/common";
+import { findComponentByCodeLazy } from "@webpack";
+import { Button, ChannelRTCStore, ContextMenuApi, FluxDispatcher, useCallback, useEffect, useRef, UserStore, useState, useStateFromStores } from "@webpack/common";
 
 import channelTabs from "..";
 import BookmarkContainer, { HorizontalScroller } from "./BookmarkContainer";
@@ -22,7 +23,6 @@ import { BasicContextMenu } from "./ContextMenus";
 type TabSet = Record<string, ChannelTabsProps[]>;
 
 const PlusSmallIcon = findComponentByCodeLazy("0v-5h5a1");
-const ChannelRTCStore = findStoreLazy("ChannelRTCStore");
 
 const cl = classNameFactory("vc-channeltabs-");
 
@@ -97,27 +97,33 @@ export default function ChannelsTabsContainer(props: BasicChannelTabsProps) {
         "newTabButtonBehavior"
     ]);
     const GhostTabs = useGhostTabs();
-    const isFullscreen = useStateFromStores([ChannelRTCStore], () => ChannelRTCStore.isFullscreenInContext() ?? false);
+    const isFullscreen = useStateFromStores([], () => ChannelRTCStore.isFullscreenInContext() ?? false);
 
     const _update = useForceUpdater();
     const update = useCallback((save = true) => {
         _update();
-        if (save) saveTabs(userId);
-    }, [userId]);
+        const currentUserId = UserStore.getCurrentUser()?.id;
+        if (save && currentUserId) void saveTabs(currentUserId);
+    }, []);
 
     const ref = useRef<HTMLDivElement>(null);
     const scrollerRef = useRef<HTMLDivElement>(null);
+    const currentChannelRef = useRef(props);
+    currentChannelRef.current = props;
 
     useEffect(() => {
-        setUpdaterFunction(update);
-        const onLogin = () => {
-            const { id } = UserStore.getCurrentUser();
-            if (id === userId && openedTabs.length) return;
-            setUserId(id);
+        return setUpdaterFunction(update);
+    }, [update]);
 
-            openStartupTabs({ ...props, userId: id }, setUserId);
+    useEffect(() => {
+        const onLogin = () => {
+            const user = UserStore.getCurrentUser();
+            if (!user) return;
+
+            void openStartupTabs({ ...currentChannelRef.current, userId: user.id }, setUserId);
         };
 
+        onLogin();
         FluxDispatcher.subscribe("CONNECTION_OPEN_SUPPLEMENTAL", onLogin);
         return () => {
             FluxDispatcher.unsubscribe("CONNECTION_OPEN_SUPPLEMENTAL", onLogin);
@@ -305,6 +311,7 @@ export default function ChannelsTabsContainer(props: BasicChannelTabsProps) {
             className={classes(
                 cl("container"),
                 tabBarPosition === "top" && cl("container-top"),
+                IS_MAC && !IS_WEB && tabBarPosition === "top" && cl("container-top-macos"),
                 !animationHover && cl("no-hover-animation"),
                 !animationSelection && cl("no-selection-animation"),
                 !animationDragDrop && cl("no-drag-animation"),

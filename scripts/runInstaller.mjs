@@ -25,7 +25,7 @@ import { Readable } from "stream";
 import { finished } from "stream/promises";
 import { fileURLToPath } from "url";
 
-const BASE_URL = "https://github.com/OMetaVR/Equilotl/releases/latest/download/";
+const BASE_URL = "https://github.com/Equicord/Equilotl/releases/latest/download/";
 const INSTALLER_PATH_DARWIN = "Equilotl.app/Contents/MacOS/Equilotl";
 const INSTALLER_APP_DARWIN = "Equilotl.app";
 
@@ -38,7 +38,14 @@ function getFilename() {
         case "win32":
             return "EquilotlCli.exe";
         case "darwin":
-            return "Equilotl.MacOS.zip";
+            switch (process.arch) {
+                case "x64":
+                    return "Equilotl-darwin-x64.zip";
+                case "arm64":
+                    return "Equilotl-darwin-arm64.zip";
+                default:
+                    throw new Error("Unsupported macOS architecture: " + process.arch);
+            }
         case "linux":
             return "EquilotlCli-linux";
         default:

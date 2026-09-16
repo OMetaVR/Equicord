@@ -24,6 +24,14 @@ const API_VERSION_STORE_KEY = "Vencord_cloudApiVersions";
 
 type ApiVersion = "v2" | "v1";
 
+const SYNC_DIRECTION_KEY = "Vencord_cloudSyncDirection";
+const SETTINGS_DIRTY_KEY = "Vencord_settingsDirty";
+export const getCloudSyncDirection = () => localStorage.getItem(SYNC_DIRECTION_KEY) || "both";
+export const setCloudSyncDirection = (direction: "push" | "pull" | "both" | "manual") => localStorage.setItem(SYNC_DIRECTION_KEY, direction);
+export const areLocalSettingsDirty = () => localStorage.getItem(SETTINGS_DIRTY_KEY) === "true";
+export const markLocalSettingsDirty = () => localStorage.setItem(SETTINGS_DIRTY_KEY, "true");
+export const markLocalSettingsClean = () => localStorage.removeItem(SETTINGS_DIRTY_KEY);
+
 async function loadApiVersionMap(): Promise<Record<string, ApiVersion>> {
     return await DataStore.get<Record<string, ApiVersion>>(API_VERSION_STORE_KEY) ?? {};
 }
@@ -104,10 +112,19 @@ async function applyDownloads(downloads: SyncResponse["downloads"]) {
         } else if (dl.key === "quickCss") {
             await VencordNative.quickCss.set(text);
             settingsChanged = true;
+        } else if (dl.key === "dataStore") {
+            try {
+                const entries = JSON.parse(text);
+                await DataStore.setMany(entries);
+                settingsChanged = true;
+            } catch (e) {
+                logger.error("Failed to apply dataStore download", e);
+            }
         } else if (dl.key.startsWith("dataStore/")) {
             const dsKey = dl.key.slice("dataStore/".length);
             try {
                 await DataStore.set(dsKey, JSON.parse(text));
+                settingsChanged = true;
             } catch (e) {
                 logger.error(`Failed to apply dataStore download for ${dsKey}`, e);
             }

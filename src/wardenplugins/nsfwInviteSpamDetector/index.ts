@@ -7,15 +7,12 @@
 import { definePluginSettings } from "@api/Settings";
 import { copyWithToast } from "@utils/discord";
 import { Logger } from "@utils/Logger";
-import { openModal } from "@utils/modal";
 import definePlugin, { OptionType } from "@utils/types";
 import { saveFile } from "@utils/web";
 import { Message } from "@vencord/discord-types";
 import { MessageType } from "@vencord/discord-types/enums";
-import { ChannelStore, GuildStore, React, RelationshipStore, SnowflakeUtils, Toasts, UserProfileStore, UserStore } from "@webpack/common";
+import { ChannelStore, GuildStore, openModal,React, RelationshipStore, SnowflakeUtils, Toasts, UserProfileStore, UserStore } from "@webpack/common";
 
-import { DetectionsModal } from "./DetectionsModal";
-import { ReviewModal } from "./ReviewModal";
 import {
     clearDetections,
     deleteDetection,
@@ -28,6 +25,8 @@ import {
     initDetectionsDb,
     putDetection
 } from "./db";
+import { DetectionsModal } from "./DetectionsModal";
+import { ReviewModal } from "./ReviewModal";
 
 const logger = new Logger("NSFWInviteSpamDetector", "#f26c6c");
 
@@ -578,7 +577,7 @@ function isTeachingRecord(record: DetectionRecord) {
     return record.verdict === "confirmed" || record.highestScore >= teacherScoreThreshold;
 }
 
-function showToast(message: string, type: number) {
+function showToast(message: string, type: (typeof Toasts.Type)[keyof typeof Toasts.Type]) {
     Toasts.show({
         id: Toasts.genId(),
         message,
@@ -762,7 +761,7 @@ function getSyncErrorMessage(response: Response, payload: Record<string, unknown
     return bodyError || `${response.status} ${response.statusText}`.trim() || "Sync request failed.";
 }
 
-async function postToBot<T extends Record<string, unknown>>(path: string, body: Record<string, unknown>) {
+async function postToBot<T extends object>(path: string, body: Record<string, unknown>) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), SYNC_REQUEST_TIMEOUT_MS);
 
@@ -794,7 +793,7 @@ async function postToBot<T extends Record<string, unknown>>(path: string, body: 
     }
 }
 
-async function getFromBot<T extends Record<string, unknown>>(path: string, params?: Record<string, string>) {
+async function getFromBot<T extends object>(path: string, params?: Record<string, string>) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), SYNC_REQUEST_TIMEOUT_MS);
 
@@ -1502,7 +1501,7 @@ export default definePlugin({
     name: "NSFWInviteSpamDetector",
     description: "Detects likely NSFW Discord invite spam, stores flagged accounts locally, and exports confirmed actor IDs.",
     authors: [{ name: "Warden", id: 0n }],
-    tags: ["spam", "moderation", "invite", "warden"],
+    tags: ["Chat", "Utility"],
     settings,
 
     toolboxActions: {

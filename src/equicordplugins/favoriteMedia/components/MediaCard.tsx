@@ -4,8 +4,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { openModal } from "@utils/modal";
-import { ContextMenuApi, FluxDispatcher, Menu, React } from "@webpack/common";
+import { ContextMenuApi, FluxDispatcher, Menu, openModal,React } from "@webpack/common";
 
 import { settings } from "..";
 import { Category, MediaCardProps } from "../types";

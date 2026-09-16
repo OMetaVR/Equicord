@@ -12,9 +12,8 @@ import { definePluginSettings } from "@api/Settings";
 import { Button } from "@components/Button";
 import { EquicordDevs } from "@utils/constants";
 import { Logger } from "@utils/Logger";
-import { openModal } from "@utils/modal";
 import definePlugin, { OptionType } from "@utils/types";
-import { FluxDispatcher, Menu, React, Toasts } from "@webpack/common";
+import { FluxDispatcher, Menu, openModal,React, Toasts } from "@webpack/common";
 
 import { AudioIcon, FavoriteMediaChatBarButton, FileIcon, ImageIcon, VideoIcon } from "./components/ChatBarButton";
 import { CollectionModal } from "./components/CollectionModal";
@@ -112,7 +111,6 @@ function extractMediaName(url: string): string {
         return "media";
     }
 }
-
 
 async function addMediaToCollection(mediaInfo: { url: string; type: MediaType; poster?: string; }, collectionId: number) {
     const { url, type, poster } = mediaInfo;

@@ -7,17 +7,17 @@
 import "./DetectionsModal.css";
 
 import { Button } from "@components/Button";
-import { copyWithToast } from "@utils/discord";
 import { classNameFactory } from "@utils/css";
-import { ModalCloseButton, ModalContent, ModalHeader, ModalRoot } from "@utils/modal";
-import { React, useEffect, useMemo, useState } from "@webpack/common";
+import { copyWithToast } from "@utils/discord";
+import { RenderModalProps } from "@vencord/discord-types";
+import { Modal, React, useEffect, useMemo, useState } from "@webpack/common";
 
 import { DetectionRecord, DetectionVerdict } from "./db";
 
 const cl = classNameFactory("vc-nsfw-invite-detections-");
 
 interface DetectionsModalProps {
-    rootProps: any;
+    rootProps: RenderModalProps;
     initialRecords: DetectionRecord[];
     isTeachingRecord(record: DetectionRecord): boolean;
     onDeleteRecord(authorId: string): Promise<void>;
@@ -75,20 +75,9 @@ export function DetectionsModal({
     }
 
     return (
-        <ModalRoot className={cl("modal")} size="large" {...rootProps}>
-            <ModalHeader>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "16px", width: "100%" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: "6px", minWidth: 0, color: "var(--text-default)" }}>
-                        <strong>Stored Invite Spam Detections</strong>
-                        <div style={{ color: "var(--text-muted)", fontSize: "14px" }}>
-                            Review stored accounts, inspect message samples, and remove bad data from the pool.
-                        </div>
-                    </div>
-                    <ModalCloseButton onClick={rootProps.onClose} />
-                </div>
-            </ModalHeader>
+        <Modal size="lg" {...rootProps} title="Stored Invite Spam Detections">
 
-            <ModalContent className={cl("modal-content")}>
+            <div className={cl("modal-content")}>
                 <div className={cl("toolbar")}>
                     <div className={cl("toolbar-note")}>
                         {records.length} stored records. {records.filter(record => record.verdict === "confirmed").length} confirmed.
@@ -233,8 +222,8 @@ export function DetectionsModal({
                         )}
                     </div>
                 </div>
-            </ModalContent>
+            </div>
 
-        </ModalRoot>
+        </Modal>
     );
 }

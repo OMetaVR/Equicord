@@ -242,7 +242,7 @@
     color: var(--text-default);
 }
 
-@media (max-width: 900px) {
+@media (width <= 900px) {
     .vc-nsfw-invite-detections-modal {
         width: calc(100vw - 24px);
     }

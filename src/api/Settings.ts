@@ -70,11 +70,13 @@ export interface Settings {
     | "under-page"
     | "window"
     | undefined;
+    windowsMaterial: "none" | "mica" | "tabbed" | "acrylic";
     disableMinSize: boolean;
     winNativeTitleBar: boolean;
     plugins: {
         [plugin: string]: {
             enabled: boolean;
+            isFavorite?: boolean;
             [setting: string]: any;
         };
     };
@@ -100,12 +102,6 @@ export interface Settings {
     };
 
     ignoreResetWarning: boolean;
-
-    userCssVars: {
-        [themeId: string]: {
-            [varName: string]: string;
-        };
-    };
 }
 
 const DefaultSettings: Settings = {
@@ -126,6 +122,7 @@ const DefaultSettings: Settings = {
     transparent: false,
     winCtrlQ: false,
     macosVibrancyStyle: undefined,
+    windowsMaterial: "none",
     disableMinSize: false,
     winNativeTitleBar: false,
     plugins: {},
@@ -151,8 +148,6 @@ const DefaultSettings: Settings = {
     },
 
     ignoreResetWarning: false,
-
-    userCssVars: {}
 };
 
 const settings = !IS_REPORTER ? VencordNative.settings.get() : {} as Settings;
@@ -178,7 +173,7 @@ export const SettingsStore = new SettingsStoreClass(settings, {
         if (path.startsWith("plugins.")) {
             const plugin = path.slice("plugins.".length);
             if (plugin in plugins) {
-                const setting = plugins[plugin].options?.[key];
+                const setting = plugins[plugin].settings?.def[key];
                 if (!setting) return v;
 
                 if ("default" in setting)
@@ -208,7 +203,7 @@ if (!IS_REPORTER) {
  * Same as {@link Settings} but unproxied. You should treat this as readonly,
  * as modifying properties on this will not save to disk or call settings
  * listeners.
- * WARNING: default values specified in plugin.options will not be ensured here. In other words,
+ * WARNING: default values specified in plugin.settings will not be ensured here. In other words,
  * settings for which you specified a default value may be uninitialised. If you need proper
  * handling for default values, use {@link Settings}
  */
@@ -333,7 +328,7 @@ export function migrateSettingsFromPlugin(newPlugin: string, oldPlugin: string, 
     SettingsStore.markAsChanged();
 }
 
-export function migrateOldSettingToNewPlugin(newPlugin: string, newSetting: string, oldPlugin: string, oldSetting: string,) {
+export function migrateOldSettingToNewPlugin(newPlugin: string, newSetting: string, oldPlugin: string, oldSetting: string) {
     const { plugins } = SettingsStore.plain;
     const oldSettings = plugins[oldPlugin];
     const newSettings = plugins[newPlugin];
@@ -353,7 +348,13 @@ export function definePluginSettings<
     Checks extends SettingsChecks<Def>,
     PrivateSettings extends object = {}
 >(def: Def, checks?: Checks) {
-    const definedSettings: DefinedSettings<Def, Checks, PrivateSettings> = {
+    if (checks) {
+        for (const [name, check] of Object.entries(checks)) {
+            Object.assign(def[name], check);
+        }
+    }
+
+    const definedSettings: DefinedSettings<Def, PrivateSettings> = {
         get store() {
             if (!definedSettings.pluginName) throw new Error("Cannot access settings before plugin is initialized");
             return Settings.plugins[definedSettings.pluginName] as any;
@@ -368,11 +369,10 @@ export function definePluginSettings<
                 : [`plugins.${definedSettings.pluginName}.*`]
         ) as UseSettings<Settings>[]).plugins[definedSettings.pluginName] as any,
         def,
-        checks: checks ?? {} as any,
         pluginName: "",
 
         withPrivateSettings<T extends object>() {
-            return this as DefinedSettings<Def, Checks, T>;
+            return this as DefinedSettings<Def, T>;
         }
     };
 

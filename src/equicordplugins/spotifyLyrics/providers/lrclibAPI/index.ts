@@ -67,7 +67,6 @@ export async function getLyricsLrclib(track: Track) {
 
     if (!data.syncedLyrics) return null;
 
-
     const lyrics = lrcFormatToSyncedLyrics(data.syncedLyrics);
     if (lyrics.length === 0) return null;
     return lyrics;

@@ -6,13 +6,13 @@
 
 import { Button } from "@components/Button";
 import { DeleteIcon, DownArrow, RightArrow } from "@components/Icons";
-import { ModalContent, ModalFooter, ModalHeader, ModalRoot } from "@utils/modal";
-import { React, useMemo, useState } from "@webpack/common";
+import { RenderModalProps } from "@vencord/discord-types";
+import { Modal, React, useMemo, useState } from "@webpack/common";
 
 import { DetectionRecord, DetectionReviewState, DetectionVerdict } from "./db";
 
 interface ReviewModalProps {
-    rootProps: any;
+    rootProps: RenderModalProps;
     initialRecords: DetectionRecord[];
     isTeachingRecord(record: DetectionRecord): boolean;
     onDeleteRecord(authorId: string): Promise<void>;
@@ -91,17 +91,9 @@ export function ReviewModal({
     }
 
     return (
-        <ModalRoot {...rootProps} size="large">
-            <ModalHeader>
-                <div style={{ display: "flex", flexDirection: "column", gap: "6px", width: "100%", color: "var(--text-default)" }}>
-                    <strong>NSFW Invite Spam Training Review</strong>
-                    <div style={{ color: "var(--text-muted)", fontSize: "14px" }}>
-                        {teachingCount} of {records.length} stored records are currently teaching the model.
-                    </div>
-                </div>
-            </ModalHeader>
+        <Modal {...rootProps} size="lg" title="NSFW Invite Spam Training Review" subtitle={`${teachingCount} of ${records.length} stored records are currently teaching the model.`}>
 
-            <ModalContent>
+            <div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px", color: "var(--text-default)" }}>
                     <div style={{ color: "var(--text-muted)", fontSize: "14px" }}>
                         Boosted records always teach. Suppressed records never teach.
@@ -220,11 +212,11 @@ export function ReviewModal({
                         );
                     })}
                 </div>
-            </ModalContent>
+            </div>
 
-            <ModalFooter>
+            <div>
                 <Button variant="secondary" onClick={rootProps.onClose}>Close</Button>
-            </ModalFooter>
-        </ModalRoot>
+            </div>
+        </Modal>
     );
 }

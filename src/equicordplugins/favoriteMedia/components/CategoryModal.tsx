@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize } from "@utils/modal";
-import { Button, ColorPicker, React, TextInput } from "@webpack/common";
+import { RenderModalProps } from "@vencord/discord-types";
+import { Button, ColorPicker, Modal, React, TextInput } from "@webpack/common";
 
 import { CategoryModalProps } from "../types";
 
@@ -16,7 +16,7 @@ const DEFAULT_COLORS = [
     "#33FFF5", "#FF8C33", "#8C33FF", "#33FF8C", "#FF3333"
 ];
 
-export function CategoryModal({ category, parentId, onSave, onClose, transitionState }: CategoryModalProps & ModalProps) {
+export function CategoryModal({ category, parentId, onSave, onClose, transitionState }: CategoryModalProps & RenderModalProps) {
     const isEditing = !!category;
 
     const [name, setName] = React.useState(category?.name || "");
@@ -66,15 +66,9 @@ export function CategoryModal({ category, parentId, onSave, onClose, transitionS
     }, [handleSave, onClose]);
 
     return (
-        <ModalRoot size={ModalSize.SMALL} transitionState={transitionState}>
-            <ModalHeader>
-                <div className="fm-modal-header">
-                    {isEditing ? "Edit Category" : "Create Category"}
-                </div>
-                <ModalCloseButton onClick={onClose} />
-            </ModalHeader>
+        <Modal size="sm" transitionState={transitionState} onClose={onClose} title={isEditing ? "Edit Category" : "Create Category"}>
 
-            <ModalContent className="fm-modal-content">
+            <div className="fm-modal-content">
                 <div className="fm-modal-field">
                     <label className="fm-modal-label">
                         Category Name
@@ -115,9 +109,9 @@ export function CategoryModal({ category, parentId, onSave, onClose, transitionS
                         Creating subcategory
                     </div>
                 )}
-            </ModalContent>
+            </div>
 
-            <ModalFooter>
+            <div>
                 <Button
                     onClick={handleSave}
                     disabled={!!error || name.trim().length === 0}
@@ -130,7 +124,7 @@ export function CategoryModal({ category, parentId, onSave, onClose, transitionS
                 >
                     Cancel
                 </Button>
-            </ModalFooter>
-        </ModalRoot>
+            </div>
+        </Modal>
     );
 }

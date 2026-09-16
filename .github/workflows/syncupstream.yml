@@ -8,64 +8,53 @@ concurrency:
   group: syncupstream-main
   cancel-in-progress: false
 
-env:
-  DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-
 permissions:
   contents: write
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+    outputs:
+      updated: ${{ steps.merge.outputs.updated }}
+      commit: ${{ steps.merge.outputs.commit }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: main
-
-      - name: Setup Git
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-
-      - name: Add upstream and fetch
-        run: |
-          git remote add upstream https://github.com/Equicord/Equicord.git
-          git fetch upstream main
-
-      - name: Check for new commits
-        id: check
-        run: |
-          UPSTREAM_COMMITS=$(git rev-list HEAD..upstream/main --count)
-          echo "commits=$UPSTREAM_COMMITS" >> $GITHUB_OUTPUT
-          if [ "$UPSTREAM_COMMITS" -gt 0 ]; then
-            echo "has_updates=true" >> $GITHUB_OUTPUT
-          else
-            echo "has_updates=false" >> $GITHUB_OUTPUT
-          fi
-
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
       - name: Merge upstream
-        if: steps.check.outputs.has_updates == 'true'
         id: merge
-        continue-on-error: true
         run: |
           set -euo pipefail
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git remote add upstream https://github.com/Equicord/Equicord.git
+          git fetch upstream main
+          if git merge-base --is-ancestor upstream/main HEAD; then
+            echo "updated=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           git merge --no-edit upstream/main
-
-      - name: Push changes
-        if: steps.check.outputs.has_updates == 'true' && steps.merge.outcome == 'success'
+          echo "updated=true" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - name: Validate merged source
+        if: steps.merge.outputs.updated == 'true'
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm testTsc
+          pnpm buildStandalone
+          pnpm buildWebStandalone
+      - name: Push validated merge
+        if: steps.merge.outputs.updated == 'true'
         run: git push origin HEAD:main
-
-      - name: Notify success
-        if: steps.check.outputs.has_updates == 'true' && steps.merge.outcome == 'success' && env.DISCORD_WEBHOOK != ''
-        run: |
-          curl -H "Content-Type: application/json" -d '{"content":"✅ Synced ${{ steps.check.outputs.commits }} commits from upstream Equicord"}' $DISCORD_WEBHOOK
-
-      - name: Notify conflict
-        if: steps.check.outputs.has_updates == 'true' && steps.merge.outcome != 'success' && env.DISCORD_WEBHOOK != ''
-        run: |
-          curl -H "Content-Type: application/json" -d '{"content":"<@297075664530440192> ⚠️ Merge conflict syncing from upstream! Manual intervention needed."}' $DISCORD_WEBHOOK
-
-      - name: Fail on merge conflict
-        if: steps.check.outputs.has_updates == 'true' && steps.merge.outcome != 'success'
-        run: exit 1
+  release:
+    needs: sync
+    if: needs.sync.outputs.updated == 'true'
+    uses: ./.github/workflows/build.yml
+    with:
+      ref: ${{ needs.sync.outputs.commit }}

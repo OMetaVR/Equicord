@@ -5,9 +5,8 @@
  */
 
 import { copyWithToast } from "@utils/discord";
-import { openModal } from "@utils/modal";
 import { findComponentByCodeLazy } from "@webpack";
-import { FluxDispatcher, Menu } from "@webpack/common";
+import { FluxDispatcher, Menu, openModal } from "@webpack/common";
 
 import { providers } from "../api";
 import { lyricsAlternative } from "../providers/store";

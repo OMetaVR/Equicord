@@ -94,6 +94,14 @@ async function exportMessage(message: Message) {
     }
 }
 
+function Icon() {
+    return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
+        </svg>
+    );
+}
+
 const messageContextMenuPatch = (children: Array<React.ReactElement<any> | null>, props: { message: Message; }) => {
     const { message } = props;
 
@@ -103,11 +111,8 @@ const messageContextMenuPatch = (children: Array<React.ReactElement<any> | null>
         <Menu.MenuItem
             id="export-message"
             label="Export Message"
-            icon={() => (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z" />
-                </svg>
-            )}
+            icon={Icon}
+            leadingAccessory={{ type: "icon", icon: Icon }}
             action={() => exportMessage(message)}
         />
     );
@@ -138,21 +143,19 @@ export default definePlugin({
     patches: [
         {
             find: "fetchRelationships(){",
+            predicate: () => settings.store.exportContacts,
             replacement: {
                 match: /(\.then\(\i)=>(\i\.\i\.dispatch\({type:"LOAD_RELATIONSHIPS_SUCCESS",relationships:(\i\.body)}\))/,
                 replace: "$1=>{$2; $self.getContacts($3)}"
             }
         },
         {
-            find: "[role=\"tab\"][aria-disabled=\"false\"]",
+            find: '[role="tab"][aria-disabled="false"]',
+            predicate: () => settings.store.exportContacts,
             replacement: {
-                match: /("aria-label":(\i).{0,25})(\i)\.Children\.map\((\i),this\.renderChildren\)/,
+                match: /("aria-label":(\i).{0,25}children:null!=\i)\?(this\.renderChildren\(\i\)):null/,
                 replace:
-                    "$1($3 && $3.Children" +
-                    "? ($2 === 'Friends'" +
-                    "? [...$3.Children.map($4, this.renderChildren), $self.addExportButton()]" +
-                    ": [...$3.Children.map($4, this.renderChildren)])" +
-                    ": $3.map($4, this.renderChildren))"
+                    '$1?($2==="Friends"?[...$3,$self.addExportButton()]:$3):null'
             }
         }
     ],

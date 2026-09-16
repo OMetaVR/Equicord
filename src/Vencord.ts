@@ -18,6 +18,7 @@
 
 // DO NOT REMOVE UNLESS YOU WISH TO FACE THE WRATH OF THE CIRCULAR DEPENDENCY DEMON!!!!!!!
 import "~plugins";
+import "./fixWeirdAppRegionBug.css";
 
 export * as Api from "./api";
 export * as Plugins from "./api/PluginManager";
@@ -41,8 +42,7 @@ import { popNotice, showNotice } from "./api/Notices";
 import { NotificationData, showNotification } from "./api/Notifications";
 import { initPluginManager, PMLogger, startAllPlugins } from "./api/PluginManager";
 import { PlainSettings, Settings, SettingsStore } from "./api/Settings";
-import { getCloudSettings, putCloudSettings, shouldCloudSync } from "./api/SettingsSync/cloudSync";
-import { localStorage } from "./utils/localStorage";
+import { areLocalSettingsDirty, getCloudSettings, getCloudSyncDirection, markLocalSettingsDirty, putCloudSettings, shouldCloudSync } from "./api/SettingsSync/cloudSync";
 import { relaunch } from "./utils/native";
 import { checkForUpdates, isOutdated as getIsOutdated, update, UpdateLogger } from "./utils/updater";
 import { onceReady } from "./webpack";
@@ -53,11 +53,6 @@ if (IS_REPORTER) {
 }
 
 async function syncSettings() {
-    // Check if cloud auth exists for current user before attempting sync
-    if (localStorage.Vencord_cloudSyncDirection === undefined) {
-        // by default, sync bi-directionally
-        localStorage.Vencord_cloudSyncDirection = "both";
-    }
     const hasCloudAuth = await dsGet("Vencord_cloudSecret");
     if (!hasCloudAuth) {
         if (Settings.cloud.authenticated) {
@@ -85,7 +80,8 @@ async function syncSettings() {
             body: "We've noticed you have cloud integrations enabled in another client! Due to limitations, you will " +
                 "need to re-authenticate to continue using them. Click here to go to the settings page to do so!",
             color: "var(--yellow-360)",
-            onClick: () => SettingsRouter.openUserSettings("equicord_cloud_panel")
+            onClick: () => SettingsRouter.openUserSettings("equicord_cloud_panel"),
+            noPersist: true
         });
         return;
     }
@@ -93,9 +89,9 @@ async function syncSettings() {
     if (
         Settings.cloud.settingsSync && // if it's enabled
         Settings.cloud.authenticated && // if cloud integrations are enabled
-        localStorage.Vencord_cloudSyncDirection !== "manual" // if we're not in manual mode
+        getCloudSyncDirection() !== "manual" // if we're not in manual mode
     ) {
-        if (localStorage.Vencord_settingsDirty && shouldCloudSync("push")) {
+        if (areLocalSettingsDirty() && shouldCloudSync("push")) {
             await putCloudSettings();
         } else if (shouldCloudSync("pull") && await getCloudSettings(false)) { // if we synchronized something (false means no sync)
             // we show a notification here instead of allowing getCloudSettings() to show one to declutter the amount of
@@ -118,7 +114,7 @@ async function syncSettings() {
     }, 60_000);
 
     SettingsStore.addGlobalChangeListener(() => {
-        localStorage.Vencord_settingsDirty = true;
+        markLocalSettingsDirty();
         saveSettingsOnFrequentAction();
     });
 }

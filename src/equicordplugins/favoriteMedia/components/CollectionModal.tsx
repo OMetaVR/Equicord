@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-import { ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, ModalSize } from "@utils/modal";
-import { Button, FluxDispatcher, React, TextInput, Toasts } from "@webpack/common";
+import { RenderModalProps } from "@vencord/discord-types";
+import { Button, FluxDispatcher, Modal, React, TextInput, Toasts } from "@webpack/common";
 
 import { Category, Media, MediaType } from "../types";
 import { createCategory, editCategory } from "../utils/categoryManager";
 import { getMediaData, saveMediaData } from "../utils/mediaManager";
 
-interface CollectionModalProps extends ModalProps {
+interface CollectionModalProps extends RenderModalProps {
     type: MediaType;
     collection?: Category;
     mediaToAdd?: Media;
@@ -75,13 +75,8 @@ export function CollectionModal({ type, collection, mediaToAdd, onClose, transit
     }, [name, color, type, collection, mediaToAdd, isEditing, onClose]);
 
     return (
-        <ModalRoot size={ModalSize.SMALL} transitionState={transitionState}>
-            <ModalHeader>
-                <span className="fm-modal-title">
-                    {isEditing ? "Edit Collection" : "Create Collection"}
-                </span>
-            </ModalHeader>
-            <ModalContent>
+        <Modal size="sm" transitionState={transitionState} onClose={onClose} title={isEditing ? "Edit Collection" : "Create Collection"}>
+            <div>
                 <div className="fm-modal-content">
                     <div className="fm-modal-row">
                         <div className="fm-modal-input-wrapper">
@@ -102,15 +97,15 @@ export function CollectionModal({ type, collection, mediaToAdd, onClose, transit
                     </div>
                     {error && <div className="fm-modal-error">{error}</div>}
                 </div>
-            </ModalContent>
-            <ModalFooter className="fm-modal-footer">
+            </div>
+            <div className="fm-modal-footer">
                 <Button onClick={handleSave} color={Button.Colors.BRAND}>
                     {isEditing ? "Save" : "Create"}
                 </Button>
                 <Button onClick={onClose} look={Button.Looks.LINK} className="fm-cancel-btn">
                     Cancel
                 </Button>
-            </ModalFooter>
-        </ModalRoot>
+            </div>
+        </Modal>
     );
 }

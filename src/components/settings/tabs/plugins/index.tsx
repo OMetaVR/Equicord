@@ -35,9 +35,10 @@ import { isTruthy } from "@utils/guards";
 import { Logger } from "@utils/Logger";
 import { Margins } from "@utils/margins";
 import { classes } from "@utils/misc";
-import { useAwaiter, useIntersection } from "@utils/react";
+import { PluginTarget } from "@utils/pluginTargets";
+import { useAwaiter, useCleanupEffect, useIntersection } from "@utils/react";
 import { PluginTag, PluginTags } from "@utils/types";
-import { Alerts, lodash, Parser, React, SearchableSelect, Select, TextInput, Toasts, Tooltip, useCallback, useMemo, useRef, useState } from "@webpack/common";
+import { Alerts, ConfirmModal, lodash, openModal, Parser, React, SearchableSelect, Select, TextInput, Toasts, Tooltip, useCallback, useMemo, useRef, useState } from "@webpack/common";
 import { JSX } from "react";
 
 import Plugins, { ExcludedPlugins, PluginMeta } from "~plugins";
@@ -99,6 +100,7 @@ function ReloadRequiredCard({ required, enabledPlugins, openWarningModal, resetC
 
 const enum SearchStatus {
     ALL,
+    FAVORITES,
     ENABLED,
     DISABLED,
     EQUICORD,
@@ -109,13 +111,14 @@ const enum SearchStatus {
     API_PLUGINS
 }
 
-export const ExcludedReasons: Record<"web" | "discordDesktop" | "vesktop" | "equibop" | "desktop" | "dev", string> = {
+export const ExcludedReasons: Record<PluginTarget, string> = {
     desktop: "Discord Desktop app or Vesktop/Equibop",
     discordDesktop: "Discord Desktop app",
     vesktop: "Vesktop/Equibop apps",
     equibop: "Vesktop/Equibop apps",
     web: "Vesktop/Equibop apps & Discord web",
-    dev: "Developer version of Equicord"
+    dev: "Developer version of Equicord",
+    browser: "Web Browser version of Equicord"
 };
 
 function ExcludedPluginsList({ search }: { search: string; }) {
@@ -148,7 +151,7 @@ export default function PluginSettings() {
     const changeRef = useRef<ChangeList<string>>(null);
     const changes = changeRef.current ??= new ChangeList<string>();
 
-    React.useEffect(() => {
+    useCleanupEffect(() => {
         return () => {
             if (!changes.hasChanges) return;
 
@@ -158,23 +161,29 @@ export default function PluginSettings() {
             const displayed = pluginNames.slice(0, maxDisplay);
             const remainingCount = pluginNames.length - displayed.length;
 
-            Alerts.show({
-                title: "Restart required",
-                body: (
-                    <div>
-                        {displayed.map((s, i) => (
-                            <span key={i}>
-                                {i > 0 && ", "}
-                                {Parser.parse("`" + s + "`")}
-                            </span>
-                        ))}
-                        {remainingCount > 0 && <span> and {remainingCount} more</span>}
-                    </div>
-                ),
-                confirmText: "Restart now",
-                cancelText: "Later!",
-                onConfirm: () => location.reload()
-            });
+            openModal(props => (
+                <ConfirmModal
+                    {...props}
+                    title="Restart required"
+                    confirmText="Restart now"
+                    cancelText="Later!"
+                    variant="primary"
+                    onConfirm={() => location.reload()}
+                >
+                    <>
+                        <p>The following plugins require a restart:</p>
+                        <div>
+                            {displayed.map((s, i) => (
+                                <React.Fragment key={i}>
+                                    {i > 0 && ", "}
+                                    {Parser.parse("`" + s + "`")}
+                                </React.Fragment>
+                            ))}
+                            {remainingCount > 0 && <span> and {remainingCount} more</span>}
+                        </div>
+                    </>
+                </ConfirmModal>
+            ));
         };
     }, []);
 
@@ -192,8 +201,11 @@ export default function PluginSettings() {
         return o;
     }, []);
 
-    const sortedPlugins = useMemo(() => Object.values(Plugins)
-        .sort((a, b) => a.name.localeCompare(b.name)), []);
+    const sortedPlugins = useMemo(() =>
+        Object.values(Plugins).sort((a, b) => a.name.localeCompare(b.name)),
+        []
+    )
+        .toSorted((a, b) => Number(settings.plugins[b.name]?.isFavorite ?? false) - Number(settings.plugins[a.name]?.isFavorite ?? false));
 
     const hasUserPlugins = useMemo(() => !IS_STANDALONE && Object.values(PluginMeta).some(m => m.userPlugin), []);
     const hasWardenPlugins = useMemo(() => Object.values(PluginMeta).some(m => m.wardenPlugin), []);
@@ -210,6 +222,9 @@ export default function PluginSettings() {
             : null;
 
         switch (status) {
+            case SearchStatus.FAVORITES:
+                if (!settings.plugins[plugin.name]?.isFavorite) return false;
+                break;
             case SearchStatus.DISABLED:
                 if (isPluginEnabled(plugin.name)) return false;
                 break;
@@ -427,6 +442,7 @@ export default function PluginSettings() {
                     <Select
                         options={[
                             { label: "Show All", value: SearchStatus.ALL, default: true },
+                            { label: "Show Favorites", value: SearchStatus.FAVORITES },
                             { label: "Show Enabled", value: SearchStatus.ENABLED },
                             { label: "Show Disabled", value: SearchStatus.DISABLED },
                             { label: "Show Equicord", value: SearchStatus.EQUICORD },

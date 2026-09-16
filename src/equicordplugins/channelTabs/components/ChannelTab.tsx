@@ -7,9 +7,9 @@
 import { BaseText } from "@components/BaseText";
 import { ChannelTabsProps, closeTab, ensureUnreadFallbackCountsLoaded, getNotificationDotState, getUnreadFallbackCounts, isTabSelected, moveDraggedTabs, moveToTab, openedTabs, settings, updateUnreadFallbackCounts } from "@equicordplugins/channelTabs/util";
 import { ActivityIcon, CircleQuestionIcon, DiscoveryIcon, EnvelopeIcon, FriendsIcon, ICYMIIcon, NitroIcon, QuestIcon, ShopIcon } from "@equicordplugins/channelTabs/util/icons";
-import { activeQuestIntervals } from "@equicordplugins/questify"; // sorry murphy!
+import { getActiveAutoCompletes } from "@equicordplugins/questify/utils/completion";
 import { classNameFactory } from "@utils/css";
-import { getGuildAcronym, getIntlMessage, getUniqueUsername } from "@utils/discord";
+import { getGuildAcronym, getIntlMessage } from "@utils/discord";
 import { classes } from "@utils/misc";
 import { Channel, Guild, User } from "@vencord/discord-types";
 import { findComponentByCodeLazy, findCssClassesLazy } from "@webpack";
@@ -133,7 +133,7 @@ export const NotificationDot = ({ channelIds }: { channelIds: string[]; }) => {
                 width: "16px"
             }}
             ref={node => node?.style.setProperty("background-color",
-                hasMention ? "var(--red-400)" : "var(--brand-500)", "important"
+                hasMention ? "var(--danger-color, var(--red-400))" : "var(--main-color, var(--brand-experiment, var(--brand-500)))", "important"
             )}
         >
             {badgeText}
@@ -174,9 +174,8 @@ function ChannelTabContent(props: ChannelTabsProps & {
     const userId = UserStore.getCurrentUser()?.id;
     const recipients = channel?.recipients;
     const {
-        noPomeloNames,
         showStatusIndicators
-    } = settings.use(["noPomeloNames", "showStatusIndicators"]);
+    } = settings.use(["showStatusIndicators"]);
 
     const [isTyping, status, isMobile] = useStateFromStores(
         [TypingStore, PresenceStore],
@@ -233,9 +232,7 @@ function ChannelTabContent(props: ChannelTabsProps & {
     if (channel && recipients?.length) {
         if (recipients.length === 1) {
             const user = UserStore.getUser(recipients[0]) as User & { globalName: string; };
-            const username = noPomeloNames
-                ? user.globalName || user.username
-                : getUniqueUsername(user);
+            const username = user.globalName || user.username;
 
             return (
                 <>
@@ -467,20 +464,19 @@ export default function ChannelTab(props: ChannelTabsProps & { index: number; })
     }), []);
     drag(drop(ref));
 
-    // check if quests running (questify momentLet)
-    const hasActiveQuests = activeQuestIntervals.size > 0;
+    const hasActiveQuests = getActiveAutoCompletes().length > 0;
     return <div
         className={cl("tab", {
-                "tab-compact": compact,
-                "tab-selected": isTabSelected(id),
-                "tab-entering": isEntering,
-                "tab-closing": isClosing,
-                "tab-dragging": isDragging,
-                "tab-drop-target": isDropTarget,
-                "tab-nitro": channelId === "__nitro__",
-                "tab-quests-active": channelId === "__quests__" && hasActiveQuests,
-                wider: settings.store.widerTabsAndBookmarks
-            })}
+            "tab-compact": compact,
+            "tab-selected": isTabSelected(id),
+            "tab-entering": isEntering,
+            "tab-closing": isClosing,
+            "tab-dragging": isDragging,
+            "tab-drop-target": isDropTarget,
+            "tab-nitro": channelId === "__nitro__",
+            "tab-quests-active": channelId === "__quests__" && hasActiveQuests,
+            wider: settings.store.widerTabsAndBookmarks
+        })}
         key={index}
         ref={ref}
         onMouseEnter={() => setIsHovered(true)}

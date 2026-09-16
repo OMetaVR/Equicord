@@ -23,12 +23,12 @@ const Native = IS_DISCORD_DESKTOP
     ? VencordNative.pluginHelpers.FileUpload as PluginNative<typeof import("../native")>
     : null;
 
-const logger = new Logger("FileUpload", "#7cb7ff");
+export const logger = new Logger("FileUpload", "#7cb7ff");
 
 function toProxyUrl(url: string): string {
     const corsProxyUrl = normalizeCorsProxyUrl((settings.store as { corsProxyUrl?: string; }).corsProxyUrl);
 
-    if (Native || url.startsWith(`${corsProxyUrl}?url=`)) {
+    if (url.startsWith(`${corsProxyUrl}?url=`)) {
         return url;
     }
 
@@ -48,6 +48,8 @@ export interface UploadProgressState {
     attempt: number;
     totalAttempts: number;
     percent: number;
+    transferredBytes: number;
+    totalBytes: number;
     status: string;
     canCancel: boolean;
 }
@@ -60,6 +62,8 @@ const defaultUploadState: UploadProgressState = {
     attempt: 0,
     totalAttempts: 0,
     percent: 0,
+    transferredBytes: 0,
+    totalBytes: 0,
     status: "",
     canCancel: false
 };
@@ -67,6 +71,7 @@ const defaultUploadState: UploadProgressState = {
 let uploadState: UploadProgressState = { ...defaultUploadState };
 const uploadStateListeners = new Set<() => void>();
 let activeAbortController: AbortController | null = null;
+let activeXhr: XMLHttpRequest | null = null;
 let cancelRequested = false;
 
 function isUploadCancelledError(error: unknown): boolean {
@@ -121,6 +126,7 @@ export function cancelCurrentUpload() {
 
     cancelRequested = true;
     activeAbortController?.abort();
+    activeXhr?.abort();
     setUploadState({
         phase: "cancelled",
         status: "Upload cancelled.",
@@ -161,6 +167,103 @@ async function fetchWithTimeout(url: string, options: RequestInit): Promise<Resp
             activeAbortController = null;
         }
     }
+}
+
+function getHeaderEntries(headers?: HeadersInit): [string, string][] {
+    if (!headers) return [];
+    if (headers instanceof Headers) return Array.from(headers.entries());
+    if (Array.isArray(headers)) return headers.map(([key, value]) => [key, value]);
+
+    return Object.entries(headers);
+}
+
+class XhrResponse {
+    ok: boolean;
+    headers: Headers;
+    status: number;
+    statusText: string;
+    url: string;
+
+    constructor(private xhr: XMLHttpRequest) {
+        this.status = xhr.status;
+        this.statusText = xhr.statusText;
+        this.url = xhr.responseURL;
+        this.ok = this.status >= 200 && this.status < 300;
+        this.headers = new Headers();
+
+        const rawHeaders = xhr.getAllResponseHeaders();
+        for (const line of rawHeaders.trim().split(/[\r\n]+/)) {
+            if (!line) continue;
+
+            const separatorIndex = line.indexOf(":");
+            if (separatorIndex < 0) continue;
+
+            this.headers.append(line.slice(0, separatorIndex).trim(), line.slice(separatorIndex + 1).trim());
+        }
+    }
+
+    async text(): Promise<string> {
+        return typeof this.xhr.response === "string"
+            ? this.xhr.response
+            : this.xhr.responseText;
+    }
+
+    async json(): Promise<unknown> {
+        return JSON.parse(await this.text());
+    }
+}
+
+function setXhrUploadProgress(event: ProgressEvent) {
+    if (!event.lengthComputable || event.total <= 0) {
+        setUploadState({
+            status: uploadState.currentServiceLabel
+                ? `Uploading via ${uploadState.currentServiceLabel}...`
+                : "Uploading..."
+        });
+        return;
+    }
+
+    const percent = Math.round(Math.max(0, Math.min(100, event.loaded / event.total * 100)));
+    setUploadState({
+        phase: "uploading",
+        percent,
+        transferredBytes: event.loaded,
+        totalBytes: event.total,
+        status: uploadState.currentServiceLabel
+            ? `Uploading via ${uploadState.currentServiceLabel}...`
+            : "Uploading..."
+    });
+}
+
+async function uploadRequestWithTimeout(url: string, options: RequestInit): Promise<XhrResponse> {
+    const requestUrl = toProxyUrl(url);
+
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        activeXhr = xhr;
+        const timeout = setTimeout(() => xhr.abort(), getUploadTimeoutMs());
+
+        xhr.open(options.method || "GET", requestUrl);
+
+        for (const [key, value] of getHeaderEntries(options.headers)) {
+            xhr.setRequestHeader(key, value);
+        }
+
+        xhr.upload.onprogress = setXhrUploadProgress;
+        xhr.onload = () => resolve(new XhrResponse(xhr));
+        xhr.onerror = () => reject(new Error("Upload failed"));
+        xhr.onabort = () => reject(new Error(cancelRequested ? "Upload cancelled by user" : "Upload timed out"));
+        xhr.onloadend = () => {
+            clearTimeout(timeout);
+            xhr.upload.onprogress = null;
+            if (activeXhr === xhr) {
+                activeXhr = null;
+            }
+        };
+
+        const { body } = options;
+        xhr.send(body instanceof ReadableStream ? null : body as XMLHttpRequestBodyInit | null);
+    });
 }
 
 function resolveShareXRequestValue(value: string | number | boolean, filename: string): string {
@@ -225,7 +328,7 @@ async function uploadToShareX(fileBlob: Blob, filename: string): Promise<string>
         throw new Error(`Unsupported ShareX Body type: ${config.Body || "unknown"}`);
     }
 
-    const response = await fetchWithTimeout(requestUrl, { method, headers, body });
+    const response = await uploadRequestWithTimeout(requestUrl, { method, headers, body });
 
     const responseText = await response.text();
     let responseJson: unknown = null;
@@ -272,7 +375,7 @@ async function uploadToZipline(fileBlob: Blob, filename: string): Promise<string
         headers["x-zipline-folder"] = folderId;
     }
 
-    const response = await fetchWithTimeout(`${baseUrl}/api/upload`, {
+    const response = await uploadRequestWithTimeout(`${baseUrl}/api/upload`, {
         method: "POST",
         headers,
         body: formData
@@ -289,7 +392,7 @@ async function uploadToZipline(fileBlob: Blob, filename: string): Promise<string
         throw new Error("Server returned invalid response (not JSON)");
     }
 
-    const data: UploadResponse = await response.json();
+    const data = await response.json() as UploadResponse;
 
     if (data.files && data.files.length > 0 && data.files[0].url) {
         return data.files[0].url;
@@ -323,7 +426,7 @@ async function uploadToNest(fileBlob: Blob, filename: string): Promise<string> {
     const formData = new FormData();
     formData.append("file", fileBlob, filename);
 
-    const response = await fetchWithTimeout("https://nest.rip/api/files/upload", {
+    const response = await uploadRequestWithTimeout("https://nest.rip/api/files/upload", {
         method: "POST",
         headers: {
             "Authorization": nestToken
@@ -345,6 +448,117 @@ async function uploadToNest(fileBlob: Blob, filename: string): Promise<string> {
     throw new Error("No URL returned from upload");
 }
 
+type EncryptingHostUrlStyle = "query" | "param" | "fakelink" | "embed";
+
+function parseEncryptingHostDomains(raw: string): string[] {
+    let parsed: unknown;
+
+    try {
+        parsed = JSON.parse(raw);
+    } catch {
+        throw new Error("Encrypting.host domains must be a JSON array of non-empty strings");
+    }
+
+    if (!Array.isArray(parsed) || parsed.some(domain => typeof domain !== "string" || !domain.trim())) {
+        throw new Error("Encrypting.host domains must be a JSON array of non-empty strings");
+    }
+
+    return parsed.map(domain => domain.trim());
+}
+
+function getEncryptingHostConfig(): {
+    key: string;
+    urlStyle: EncryptingHostUrlStyle;
+    domains: string[];
+    title: string;
+    color: string;
+    fakelink: string;
+} {
+    const {
+        encryptingHostKey,
+        encryptingHostUrlStyle,
+        encryptingHostDomains,
+        encryptingHostTitle,
+        encryptingHostColor,
+        encryptingHostFakelink
+    } = settings.store as {
+        encryptingHostKey?: string;
+        encryptingHostUrlStyle?: string;
+        encryptingHostDomains?: string;
+        encryptingHostTitle?: string;
+        encryptingHostColor?: string;
+        encryptingHostFakelink?: string;
+    };
+
+    const key = encryptingHostKey?.trim() || "";
+    if (!key) {
+        throw new Error("Encrypting.host API key is required");
+    }
+
+    const style = encryptingHostUrlStyle || "query";
+    if (style !== "query" && style !== "param" && style !== "fakelink" && style !== "embed") {
+        throw new Error("Invalid Encrypting.host URL style");
+    }
+
+    const domainsRaw = encryptingHostDomains?.trim() || "[\"offensive\"]";
+
+    return {
+        key,
+        urlStyle: style,
+        domains: parseEncryptingHostDomains(domainsRaw),
+        title: encryptingHostTitle?.trim() || "",
+        color: encryptingHostColor?.trim() || "",
+        fakelink: encryptingHostFakelink?.trim() || ""
+    };
+}
+
+async function uploadToEncryptingHost(fileBlob: Blob, filename: string): Promise<string> {
+    const config = getEncryptingHostConfig();
+
+    const formData = new FormData();
+    formData.append("password", makeRandomHex(16));
+    formData.append("userKey", config.key);
+    formData.append("urlStyle", config.urlStyle);
+    formData.append("domains", JSON.stringify(config.domains));
+    if (config.title) {
+        formData.append("title", config.title);
+    }
+    if (config.color) {
+        formData.append("color", config.color);
+    }
+    if (config.fakelink) {
+        formData.append("fakelink", config.fakelink);
+    }
+    formData.append("file", fileBlob, filename);
+
+    const response = await uploadRequestWithTimeout("https://encrypting.host/upload", {
+        method: "POST",
+        body: formData
+    });
+
+    const text = await response.text();
+    let data: { url?: string; error?: string; } | null = null;
+
+    try {
+        data = text ? JSON.parse(text) as { url?: string; error?: string; } : null;
+    } catch {
+        data = null;
+    }
+
+    if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status} ${text}`);
+    }
+
+    const parsedUrl = data?.url?.trim() || "";
+    const fallbackUrl = text.trim().startsWith("http") ? text.trim() : "";
+    const url = parsedUrl || fallbackUrl;
+    if (!url) {
+        throw new Error("No URL returned from upload");
+    }
+
+    return url;
+}
+
 export function isConfigured(): boolean {
     const {
         serviceType,
@@ -362,6 +576,8 @@ export function isConfigured(): boolean {
             return Boolean(nestToken);
         case ServiceType.EZHOST:
             return Boolean((settings.store as { ezHostKey?: string; }).ezHostKey);
+        case ServiceType.ENCRYPTINGHOST:
+            return Boolean((settings.store as { encryptingHostKey?: string; }).encryptingHostKey);
         case ServiceType.S3:
             return isS3Configured();
         case ServiceType.CATBOX:
@@ -378,6 +594,8 @@ export function isConfigured(): boolean {
             return true;
         case ServiceType.PIXELVAULT:
             return Boolean((settings.store as { pixelVaultKey?: string; }).pixelVaultKey);
+        case ServiceType.WEBDAV:
+            return Boolean((settings.store as { webdavUrl?: string; }).webdavUrl);
         case ServiceType.SHAREX:
             try {
                 parseShareXConfigFromSettings();
@@ -416,7 +634,7 @@ async function uploadToEzHost(fileBlob: Blob, filename: string): Promise<string>
 
     const headers: Record<string, string> = { key: ezHostKey };
 
-    const response = await fetchWithTimeout("https://api.e-z.host/files", {
+    const response = await uploadRequestWithTimeout("https://api.e-z.host/files", {
         method: "POST",
         headers,
         body: formData
@@ -427,12 +645,14 @@ async function uploadToEzHost(fileBlob: Blob, filename: string): Promise<string>
         throw new Error(`Upload failed: ${response.status} ${text}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { success?: boolean; error?: string; imageUrl?: string; rawUrl?: string; };
     if (!data || !data.success) {
         throw new Error(data?.error || "Upload failed");
     }
 
-    return data.imageUrl || data.rawUrl;
+    const url = data.imageUrl || data.rawUrl;
+    if (!url) throw new Error("No URL returned from upload");
+    return url;
 }
 
 async function uploadToCatbox(fileBlob: Blob, filename: string): Promise<string> {
@@ -449,7 +669,7 @@ async function uploadToCatbox(fileBlob: Blob, filename: string): Promise<string>
     if (catboxUserhash) formData.append("userhash", catboxUserhash);
     formData.append("fileToUpload", fileBlob, filename);
 
-    const response = await fetchWithTimeout("https://catbox.moe/user/api.php", {
+    const response = await uploadRequestWithTimeout("https://catbox.moe/user/api.php", {
         method: "POST",
         body: formData
     });
@@ -493,7 +713,7 @@ async function uploadToLitterbox(fileBlob: Blob, filename: string): Promise<stri
     formData.append("time", expiry);
     formData.append("fileToUpload", fileBlob, filename);
 
-    const response = await fetchWithTimeout("https://litterbox.catbox.moe/resources/internals/api.php", {
+    const response = await uploadRequestWithTimeout("https://litterbox.catbox.moe/resources/internals/api.php", {
         method: "POST",
         body: formData
     });
@@ -520,7 +740,7 @@ async function uploadToGofile(fileBlob: Blob, filename: string): Promise<string>
     formData.append("file", fileBlob, filename);
 
     const uploadUrl = "https://upload.gofile.io/uploadfile";
-    const response = await fetchWithTimeout(uploadUrl, {
+    const response = await uploadRequestWithTimeout(uploadUrl, {
         method: "POST",
         body: formData
     });
@@ -555,7 +775,7 @@ async function uploadToTmpfiles(fileBlob: Blob, filename: string): Promise<strin
     formData.append("file", fileBlob, filename);
 
     const uploadUrl = "https://tmpfiles.org/api/v1/upload";
-    const response = await fetchWithTimeout(uploadUrl, {
+    const response = await uploadRequestWithTimeout(uploadUrl, {
         method: "POST",
         body: formData
     });
@@ -583,7 +803,7 @@ async function uploadToBuzzheavier(fileBlob: Blob, filename: string): Promise<st
     }
 
     const uploadUrl = `https://w.buzzheavier.com/${encodeURIComponent(filename)}`;
-    const response = await fetchWithTimeout(uploadUrl, {
+    const response = await uploadRequestWithTimeout(uploadUrl, {
         method: "PUT",
         body: fileBlob
     });
@@ -618,7 +838,7 @@ async function uploadToTempSh(fileBlob: Blob, filename: string): Promise<string>
     formData.append("file", fileBlob, filename);
 
     const uploadUrl = "https://temp.sh/upload";
-    const response = await fetchWithTimeout(uploadUrl, {
+    const response = await uploadRequestWithTimeout(uploadUrl, {
         method: "POST",
         body: formData
     });
@@ -650,7 +870,7 @@ async function uploadToFilebin(fileBlob: Blob, filename: string): Promise<string
     const formData = new FormData();
     formData.append("file", fileBlob, filename);
 
-    const response = await fetchWithTimeout(uploadUrl, {
+    const response = await uploadRequestWithTimeout(uploadUrl, {
         method: "POST",
         body: formData
     });
@@ -686,7 +906,7 @@ async function uploadToPixelVault(fileBlob: Blob, filename: string): Promise<str
     const formData = new FormData();
     formData.append("file", fileBlob, filename);
 
-    const response = await fetchWithTimeout("https://pixelvault.co/", {
+    const response = await uploadRequestWithTimeout("https://pixelvault.co/", {
         method: "POST",
         headers: {
             Authorization: pixelVaultKey.trim()
@@ -729,7 +949,7 @@ async function uploadToPixelDrain(fileBlob: Blob, filename: string): Promise<str
         headers.Authorization = `Basic ${btoa(`:${pixelDrainKey.trim()}`)}`;
     }
 
-    const response = await fetchWithTimeout(`https://pixeldrain.com/api/file/${encodeURIComponent(filename)}`, {
+    const response = await uploadRequestWithTimeout(`https://pixeldrain.com/api/file/${encodeURIComponent(filename)}`, {
         method: "PUT",
         headers,
         body: fileBlob
@@ -754,6 +974,160 @@ async function uploadToPixelDrain(fileBlob: Blob, filename: string): Promise<str
     return `https://pixeldrain.com/u/${data.id}`;
 }
 
+function buildWebdavAuthHeader(): string | null {
+    const { webdavUsername, webdavPassword } = settings.store as {
+        webdavUsername?: string;
+        webdavPassword?: string;
+    };
+    if (webdavUsername?.trim() && webdavPassword?.trim()) {
+        return `Basic ${btoa(`${webdavUsername.trim()}:${webdavPassword.trim()}`)}`;
+    }
+    return null;
+}
+
+async function createWebdavShare(relativePath: string, serverOrigin: string, filename: string): Promise<string> {
+    const { webdavServerType, webdavShareType } = settings.store as {
+        webdavServerType?: string;
+        webdavShareType?: string;
+    };
+
+    const ocsVersion = webdavServerType === "owncloud" ? "v1" : "v2";
+    const ocsUrl = `${serverOrigin}/ocs/${ocsVersion}.php/apps/files_sharing/api/v1/shares?format=json`;
+
+    const authHeader = buildWebdavAuthHeader();
+    const ocsHeaders: Record<string, string> = {
+        "OCS-APIRequest": "true",
+        "Content-Type": "application/x-www-form-urlencoded"
+    };
+    if (authHeader) {
+        ocsHeaders.Authorization = authHeader;
+    }
+
+    const body = new URLSearchParams({
+        path: `/${relativePath}`,
+        shareType: "3",
+        permissions: "1"
+    }).toString();
+
+    let shareToken: string;
+    let shareUrl: string | undefined;
+
+    if (Native) {
+        const result = await Native.createWebdavShare(ocsUrl, ocsHeaders, body);
+        if (!result.success) {
+            throw new Error(result.error || "Failed to create public share");
+        }
+        shareToken = result.url || "";
+        if (!shareToken) {
+            throw new Error("No share token returned from server");
+        }
+    } else {
+        const response = await uploadRequestWithTimeout(ocsUrl, {
+            method: "POST",
+            headers: ocsHeaders,
+            body
+        });
+
+        const responseText = await response.text();
+
+        if (!response.ok) {
+            throw new Error(`Failed to create public share: ${response.status} ${responseText}`);
+        }
+
+        let shareData: { ocs?: { data?: { url?: string; token?: string; }; meta?: Record<string, string>; }; };
+        try {
+            shareData = JSON.parse(responseText);
+        } catch {
+            throw new Error(`Failed to parse share response: ${responseText.slice(0, 200)}`);
+        }
+
+        shareToken = shareData?.ocs?.data?.token ?? "";
+
+        if (!shareToken) {
+            const meta = shareData?.ocs?.meta;
+            const description = meta ? `${meta.status || "unknown"} (${meta.statuscode || "?"})` : "no token in response";
+            throw new Error(`Failed to create public share: ${description}`);
+        }
+
+        shareUrl = shareData.ocs?.data?.url;
+    }
+
+    const shareType = webdavShareType || "share-page";
+
+    const sharePageUrl = shareUrl || `${serverOrigin}/s/${shareToken}`;
+    const directDownloadUrl = webdavServerType === "owncloud"
+        ? `${serverOrigin}/remote.php/dav/public-files/${shareToken}`
+        : `${serverOrigin}/public.php/dav/files/${shareToken}`;
+
+    if (shareType === "direct-download") {
+        return directDownloadUrl;
+    }
+
+    if (shareType === "markdown") {
+        return `[${filename}](${directDownloadUrl})`;
+    }
+
+    return sharePageUrl;
+}
+
+async function uploadToWebdav(fileBlob: Blob, filename: string): Promise<string> {
+    const { webdavUrl, webdavServerType, webdavDirectory } = settings.store as {
+        webdavUrl?: string;
+        webdavServerType?: string;
+        webdavDirectory?: string;
+    };
+
+    if (!webdavUrl) {
+        throw new Error("WebDAV server URL is required");
+    }
+
+    const authHeader = buildWebdavAuthHeader();
+    const baseUrl = webdavUrl.replace(/\/+$/, "");
+    const dir = (webdavDirectory || "").replace(/^\/+|\/+$/g, "");
+    const relativePath = dir ? `${dir}/${filename}` : filename;
+    const encodedDir = dir ? dir.split("/").map(encodeURIComponent).join("/") + "/" : "";
+    const uploadUrl = `${baseUrl}/${encodedDir}${encodeURIComponent(filename)}`;
+    const serverType = webdavServerType || "nextcloud";
+
+    const requestHeaders: Record<string, string> = {
+        "Content-Type": fileBlob.type || "application/octet-stream"
+    };
+    if (authHeader) {
+        requestHeaders.Authorization = authHeader;
+    }
+
+    if (Native) {
+        const arrayBuffer = await fileBlob.arrayBuffer();
+        const result = await Native.uploadToWebdav(arrayBuffer, uploadUrl, requestHeaders);
+        if (!result.success) {
+            throw new Error(result.error || "Upload failed");
+        }
+    } else {
+        const response = await uploadRequestWithTimeout(uploadUrl, {
+            method: "PUT",
+            headers: requestHeaders,
+            body: fileBlob
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Upload failed: ${response.status} ${errorText}`);
+        }
+    }
+
+    if (serverType === "generic") {
+        return uploadUrl;
+    }
+
+    let serverOrigin: string;
+    try {
+        serverOrigin = new URL(webdavUrl).origin;
+    } catch {
+        throw new Error("Invalid WebDAV server URL");
+    }
+    return await createWebdavShare(relativePath, serverOrigin, filename);
+}
+
 async function uploadToService(serviceType: ServiceType, fileBlob: Blob, filename: string): Promise<string> {
     switch (serviceType) {
         case ServiceType.ZIPLINE:
@@ -762,8 +1136,10 @@ async function uploadToService(serviceType: ServiceType, fileBlob: Blob, filenam
             return uploadToNest(fileBlob, filename);
         case ServiceType.EZHOST:
             return uploadToEzHost(fileBlob, filename);
+        case ServiceType.ENCRYPTINGHOST:
+            return uploadToEncryptingHost(fileBlob, filename);
         case ServiceType.S3:
-            return uploadToS3(fileBlob, filename, Native);
+            return uploadToS3(fileBlob, filename, Native, uploadRequestWithTimeout);
         case ServiceType.CATBOX:
             return uploadToCatbox(fileBlob, filename);
         case ServiceType.ZEROX0:
@@ -786,6 +1162,8 @@ async function uploadToService(serviceType: ServiceType, fileBlob: Blob, filenam
             return uploadToPixelVault(fileBlob, filename);
         case ServiceType.PIXELDRAIN:
             return uploadToPixelDrain(fileBlob, filename);
+        case ServiceType.WEBDAV:
+            return uploadToWebdav(fileBlob, filename);
         default:
             throw new Error("Unknown service type");
     }
@@ -896,6 +1274,25 @@ function finalizeUploadedUrl(url: string): string {
     }
 }
 
+function getAllowedExtensions(): Set<string> | null {
+    const raw = (settings.store as { uploadAllowedFileTypes?: string; }).uploadAllowedFileTypes?.trim();
+    if (!raw) return null;
+
+    const exts = raw.split(/[\s,;]+/).map(e => e.trim().toLowerCase()).filter(Boolean);
+    return exts.length > 0 ? new Set(exts) : null;
+}
+
+export function isFileTypeAllowed(file: File): boolean {
+    const allowed = getAllowedExtensions();
+    if (!allowed) return true;
+
+    const dotIndex = file.name.lastIndexOf(".");
+    if (dotIndex < 1 || dotIndex === file.name.length - 1) return false;
+
+    const ext = file.name.slice(dotIndex + 1).toLowerCase();
+    return allowed.has(ext);
+}
+
 function getFilenameExtension(filename: string): string | undefined {
     const dotIndex = filename.lastIndexOf(".");
     if (dotIndex < 1 || dotIndex === filename.length - 1) return undefined;
@@ -904,7 +1301,7 @@ function getFilenameExtension(filename: string): string | undefined {
     return ext.length <= 10 ? ext : undefined;
 }
 
-async function notifyUploadSuccess(finalUrl: string): Promise<void> {
+async function notifyUploadSuccess(finalUrl: string, forceSend?: boolean): Promise<void> {
     if (settings.store.autoCopy) {
         if (!finalUrl || !finalUrl.trim()) {
             showToast("Upload successful, but no URL was available to copy", Toasts.Type.MESSAGE);
@@ -922,7 +1319,7 @@ async function notifyUploadSuccess(finalUrl: string): Promise<void> {
         showToast("Upload successful", Toasts.Type.SUCCESS);
     }
 
-    const autoSend = Boolean((settings.store as { autoSend?: boolean; }).autoSend);
+    const autoSend = forceSend || Boolean((settings.store as { autoSend?: boolean; }).autoSend);
     const autoFormat = Boolean((settings.store as { autoFormat?: boolean; }).autoFormat);
     if (autoSend) {
         insertTextIntoChatInputBox(autoFormat ? `<${finalUrl}>` : finalUrl);
@@ -940,6 +1337,8 @@ async function uploadWithFallbacks(fileBlob: Blob, filename: string, primary: Se
         totalAttempts: uploadOrder.length,
         attempt: 1,
         percent: 5,
+        transferredBytes: 0,
+        totalBytes: fileBlob.size,
         status: `Starting upload via ${serviceLabels[uploadOrder[0]]}...`,
         currentService: uploadOrder[0],
         currentServiceLabel: serviceLabels[uploadOrder[0]],
@@ -950,12 +1349,15 @@ async function uploadWithFallbacks(fileBlob: Blob, filename: string, primary: Se
         if (cancelRequested) throw new Error("Upload cancelled by user");
 
         const attempt = attempted.length + 1;
+
         setUploadState({
             phase: attempt === 1 ? "uploading" : "retrying",
             attempt,
             currentService: service,
             currentServiceLabel: serviceLabels[service],
-            percent: Math.min(90, 10 + Math.round((attempt / uploadOrder.length) * 70)),
+            transferredBytes: 0,
+            totalBytes: fileBlob.size,
+            percent: 0,
             status: attempt === 1
                 ? `Uploading via ${serviceLabels[service]}...`
                 : `Retrying with ${serviceLabels[service]} (${attempt}/${uploadOrder.length})...`
@@ -1049,13 +1451,14 @@ async function normalizeUploadBlob(blob: Blob, sourceUrl?: string): Promise<{ bl
     };
 }
 
-async function uploadPreparedBlob(blob: Blob, sourceUrl?: string): Promise<void> {
+async function uploadPreparedBlob(blob: Blob, sourceUrl?: string, forceSend?: boolean): Promise<string> {
     const primary = settings.store.serviceType as ServiceType;
     const { blob: normalizedBlob, filename } = await normalizeUploadBlob(blob, sourceUrl);
     setUploadState({ fileName: filename, status: "File ready, starting upload...", percent: 4 });
     const uploadedUrl = await uploadWithFallbacks(normalizedBlob, filename, primary);
     const finalUrl = applyEmbedProxy(finalizeUploadedUrl(uploadedUrl));
-    await notifyUploadSuccess(finalUrl);
+    await notifyUploadSuccess(finalUrl, forceSend);
+    return finalUrl;
 }
 
 export async function uploadFile(url: string): Promise<void> {
@@ -1134,6 +1537,7 @@ export async function uploadFile(url: string): Promise<void> {
     } finally {
         isUploading = false;
         activeAbortController = null;
+        activeXhr = null;
         setTimeout(() => resetUploadState(), 1800);
     }
 }
@@ -1142,10 +1546,15 @@ export async function uploadPickedFile(): Promise<void> {
     const file = await chooseFile("*/*");
     if (!file) return;
 
+    if (!isFileTypeAllowed(file)) {
+        showToast("File type not allowed by current filter", Toasts.Type.FAILURE);
+        return;
+    }
+
     await uploadProvidedFiles([file]);
 }
 
-export async function uploadProvidedFiles(files: readonly File[]): Promise<void> {
+export async function uploadProvidedFiles(files: readonly File[], forceSend?: boolean): Promise<void> {
     if (isUploading) {
         showToast("Upload already in progress", Toasts.Type.MESSAGE);
         return;
@@ -1158,7 +1567,7 @@ export async function uploadProvidedFiles(files: readonly File[]): Promise<void>
 
     if (!files.length) return;
 
-    const uploadFiles = files.filter(file => Boolean(file));
+    const uploadFiles = files.filter(file => Boolean(file) && isFileTypeAllowed(file));
     if (!uploadFiles.length) return;
 
     isUploading = true;
@@ -1182,7 +1591,7 @@ export async function uploadProvidedFiles(files: readonly File[]): Promise<void>
                 canCancel: true
             });
 
-            await uploadPreparedBlob(file);
+            await uploadPreparedBlob(file, undefined, forceSend);
         }
     } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown error";
@@ -1197,6 +1606,7 @@ export async function uploadProvidedFiles(files: readonly File[]): Promise<void>
     } finally {
         isUploading = false;
         activeAbortController = null;
+        activeXhr = null;
         setTimeout(() => resetUploadState(), 1800);
     }
 }

@@ -7,7 +7,7 @@
 import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs, EquicordDevs } from "@utils/constants";
-import { useTimer } from "@utils/react";
+import { useFixedTimer } from "@utils/react";
 import { formatDurationMs } from "@utils/text";
 import definePlugin, { OptionType } from "@utils/types";
 import { PassiveUpdateState, VoiceState } from "@vencord/discord-types";
@@ -30,7 +30,7 @@ export const settings = definePluginSettings({
                 label: "30d 23h 00m 42s",
                 value: "human"
             }
-        ]
+        ] as const
     },
     allCallTimers: {
         type: OptionType.BOOLEAN,
@@ -71,7 +71,7 @@ export const settings = definePluginSettings({
 });
 
 // Save the join time of all users in a Map
-type userJoinData = { channelId: string, time: number; guildId: string; };
+type userJoinData = { channelId: string, time: number; guildId: string | null; };
 const userJoinTimes = new Map<string, userJoinData>();
 
 /**
@@ -84,7 +84,7 @@ const userJoinTimes = new Map<string, userJoinData>();
  * unique identifier of the guild (server) to which the user belongs. It is used to associate the
  * user's join time with a specific guild within the application or platform.
  */
-function addUserJoinTime(userId: string, channelId: string, guildId: string) {
+function addUserJoinTime(userId: string, channelId: string, guildId: string | null) {
     // create a random number
     userJoinTimes.set(userId, { channelId, time: Date.now(), guildId });
 }
@@ -136,12 +136,12 @@ export default definePlugin({
             ]
         },
         {
-            find: "renderConnectionStatus(){",
+            find: '"RTCConnectionMenu"',
             replacement: {
-                match: /(renderConnectionStatus\(\).{0,1000}?lineClamp:1,children:)(\i)(?=,|}\))/,
-                replace: "$1[$2,$self.renderConnectionTimer(this.props?.channel?.id)]"
+                match: /("RTCConnectionMenu".{0,200}?lineClamp:1,children:)(\i)(?=,|}\))/,
+                replace: "$1[$2,$self.renderConnectionTimer({ channelId: this?.props?.channel?.id })]"
             }
-        }
+        },
     ],
 
     flux: {
@@ -151,11 +151,6 @@ export default definePlugin({
             for (const state of voiceStates) {
                 const { userId, channelId, guildId } = state;
                 const isMe = userId === myId;
-
-                if (!guildId) {
-                    // guildId is never undefined here
-                    continue;
-                }
 
                 // check if the state does not actually has a `oldChannelId` property
                 if (!("oldChannelId" in state) && !runOneTime && !settings.store.watchLargeGuilds) {
@@ -173,7 +168,7 @@ export default definePlugin({
                 if (channelId !== oldChannelId) {
                     if (channelId) {
                         // move or join
-                        addUserJoinTime(userId, channelId, guildId);
+                        addUserJoinTime(userId, channelId, guildId ?? null);
                     } else if (oldChannelId) {
                         // leave
                         removeUserJoinTime(userId);
@@ -264,17 +259,22 @@ export default definePlugin({
         );
     },
 
-    renderConnectionTimer(channelId: string) {
+    renderConnectionTimer({ channelId }: { channelId: string | undefined; }) {
         return <ErrorBoundary noop>
             <this.ConnectionTimer channelId={channelId} />
         </ErrorBoundary>;
     },
 
-    ConnectionTimer({ channelId }: { channelId: string; }) {
-        const time = useTimer({
-            deps: [channelId]
-        });
+    ConnectionTimer: ErrorBoundary.wrap((_: { channelId: string | undefined; }) => {
+        const joinTime = userJoinTimes.get(UserStore.getCurrentUser().id)?.time;
+        const time = useFixedTimer({ initialTime: joinTime });
 
-        return <p style={{ margin: 0, fontFamily: "var(--font-code)" }}>{formatDurationMs(time, settings.store.format === "human")}</p>;
-    }
+        if (joinTime == null) return null;
+
+        return (
+            <p style={{ margin: 0, fontFamily: "var(--font-code)" }}>
+                {formatDurationMs(time, settings.store.format === "human")}
+            </p>
+        );
+    }, { noop: true }),
 });

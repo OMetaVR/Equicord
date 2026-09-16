@@ -5,10 +5,10 @@
  */
 
 import { classNameFactory } from "@api/Styles";
+import { SpotifyStore } from "@equicordplugins/musicControls/spotify/SpotifyStore";
 import { isNonNullish } from "@utils/guards";
 import { findByPropsLazy } from "@webpack";
 import { React, useEffect, useMemo, useState, useStateFromStores } from "@webpack/common";
-import { SpotifyStore } from "@equicordplugins/musicControls/spotify/SpotifyStore";
 
 import { SpotifyLrcStore } from "../providers/store";
 import { SyncedLyric } from "../providers/types";
@@ -26,13 +26,11 @@ export function NoteSvg() {
     );
 }
 
-
 export const formatTime = (time: number) => {
     const minutes = Math.floor(time / 60);
     const seconds = Math.floor(time % 60);
     return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 };
-
 
 const getIndexes = (lyrics: SyncedLyric[], position: number, delay: number) => {
     const posInSec = (position + delay - 300) / 1000;
@@ -100,7 +98,6 @@ export function useLyrics({ scroll = true, previewLyrics = void 0 }: { scroll?: 
 
         isNonNullish(currLrcIndex) && setCurrLrcIndex(void 0);
     }, [currentLyrics, position, LyricDelay]);
-
 
     useEffect(() => {
         if (!scroll || !isNonNullish(currLrcIndex) || !lyricRefs || currLrcIndex < 0) return;
