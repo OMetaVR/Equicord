@@ -40,6 +40,7 @@ with (state / 'update.lock').open('w') as lock:
         run('git', 'fetch', '--quiet', 'upstream', 'main', cwd=checkout)
         run('git', 'merge', '--no-edit', 'upstream/main', cwd=checkout)
         commit = run('git', 'rev-parse', 'HEAD', cwd=checkout, capture=True)
+        print(f'Validating fork commit: {commit}', flush=True)
         tag = f'build-{commit}'
         release = json.loads(run('gh', 'api', f'repos/{repository}/releases/latest', capture=True))
         archive = data / 'custom/desktop.asar'
@@ -51,7 +52,7 @@ with (state / 'update.lock').open('w') as lock:
             run('pnpm', script, cwd=checkout)
         run('pnpm', 'generatePluginJson', 'dist/plugins.json', cwd=checkout)
         run('git', 'push', 'origin', 'HEAD:main', cwd=checkout)
-        current = run('gh', 'api', f'repos/{repository}/git/ref/heads/main', '--jq', '.object.sha', capture=True)
+        current = run('git', 'ls-remote', 'origin', 'refs/heads/main', cwd=checkout, capture=True).split()[0]
         if current != commit:
             sys.exit('The fork changed during validation. Keeping the installed build until the next check.')
         published = subprocess.run(['gh', 'release', 'view', tag, '--repo', repository,

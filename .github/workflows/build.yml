@@ -83,7 +83,7 @@ jobs:
                   set -euo pipefail
                   commit=$(git rev-parse HEAD)
                   tag="build-$commit"
-                  current=$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq .object.sha)
+                  current=$(git ls-remote origin refs/heads/main | cut -f1)
                   if [ "$current" != "$commit" ]; then
                     echo "A newer commit is available; skipping this release."
                     exit 0
