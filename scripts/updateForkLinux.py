@@ -32,7 +32,7 @@ with (state / 'update.lock').open('w') as lock:
         sys.exit(0)
     origin = run('git', 'remote', 'get-url', 'origin', capture=True)
     upstream = run('git', 'remote', 'get-url', 'upstream', capture=True)
-    repository = run('gh', 'repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner', capture=True)
+    repository = run('gh', 'repo', 'view', origin, '--json', 'nameWithOwner', '--jq', '.nameWithOwner', capture=True)
     with tempfile.TemporaryDirectory(prefix='fork-update-', dir=state) as temporary:
         checkout = Path(temporary) / 'source'
         run('git', 'clone', '--quiet', '--single-branch', '--branch', 'main', origin, str(checkout))
