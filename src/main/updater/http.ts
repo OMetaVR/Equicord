@@ -38,7 +38,7 @@ function getAsarPath() {
     return join(__dirname, ASAR_FILE);
 }
 
-let PendingUpdate: string | null = null;
+let PendingUpdate: { url: string; hash: string; } | null = null;
 
 async function githubGet<T = any>(endpoint: string) {
     return fetchJson<T>(API_BASE + endpoint, {
@@ -51,9 +51,9 @@ async function githubGet<T = any>(endpoint: string) {
 
 async function calculateGitChanges() {
     const isOutdated = await fetchUpdates();
-    if (!isOutdated) return [];
+    if (!isOutdated || !PendingUpdate) return [];
 
-    const data = await githubGet(`/compare/${gitHash}...HEAD`);
+    const data = await githubGet(`/compare/${gitHash}...${PendingUpdate.hash}`);
 
     return data.commits.map((c: any) => ({
         hash: c.sha,
@@ -63,6 +63,7 @@ async function calculateGitChanges() {
 }
 
 async function fetchUpdates() {
+    PendingUpdate = null;
     const releaseData = await githubGet("/releases/latest");
     const tagData = await githubGet(`/git/refs/tags/${releaseData.tag_name}`);
 
@@ -70,10 +71,13 @@ async function fetchUpdates() {
     if (releaseHash === gitHash)
         return false;
 
+    const comparison = await githubGet(`/compare/${gitHash}...${releaseHash}`);
+    if (comparison.status !== "ahead") return false;
+
     const asset = releaseData.assets.find((a: any) => a.name === ASAR_FILE);
     if (!asset) return false;
 
-    PendingUpdate = asset.browser_download_url;
+    PendingUpdate = { url: asset.browser_download_url, hash: releaseHash };
     return true;
 }
 
@@ -81,7 +85,7 @@ async function applyUpdates() {
     if (!PendingUpdate) return true;
 
     const asarPath = getAsarPath();
-    const data = await fetchBuffer(PendingUpdate);
+    const data = await fetchBuffer(PendingUpdate.url);
     const temporaryPath = `${asarPath}.tmp`;
     writeFileSync(temporaryPath, data, { flush: true });
     renameSync(temporaryPath, asarPath);
